@@ -11,7 +11,7 @@ __version__ = '0.1'
 
 NAME = "hodalpt"
 PACKAGES = find_packages(where="src")
-META_PATH = os.path.join("src", "py", "__init__.py")
+META_PATH = os.path.join("src", "hodalpt", "__init__.py")
 CLASSIFIERS = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Science/Research",
@@ -56,7 +56,6 @@ if __name__ == "__main__":
         author_email=find_meta("email"),
         maintainer=find_meta("author"),
         maintainer_email=find_meta("email"),
-        url=find_meta("uri"),
         license=find_meta("license"),
         description=find_meta("description"),
         long_description=long_description,
