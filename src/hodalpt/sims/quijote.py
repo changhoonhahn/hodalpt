@@ -7,7 +7,7 @@ module for reading in Quijote data
 '''
 import os
 import h5py 
-import glob 
+import hdf5plugin
 import numpy as np 
 # --- emanu --- 
 from . import sims 
@@ -45,7 +45,6 @@ def IC(_dir):
     _dir : string
         directory that contains the snapshots and IC files 
     '''
-    print(os.path.join(_dir, 'ICs', 'ICs'))
     return _read_snap(os.path.join(_dir, 'ICs', 'ICs'))
 
 
@@ -162,8 +161,7 @@ def _read_field(snapshot, block, ptype):
     elif block=="ID  ":  suffix = "ParticleIDs"
     elif block=="VEL ":  suffix = "Velocities"
     else: raise Exception('block not implemented in readgadget!')
-    
-    array = f[prefix+suffix][...] 
+    array = f[prefix+suffix][:]
     f.close()
 
     if block=="VEL ":  array *= np.sqrt(head['time'])
