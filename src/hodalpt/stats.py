@@ -5,7 +5,7 @@ galaxies in a box
 
 
 '''
-from pyspectrum import pyspecturm as PyS
+from pyspectrum import pyspectrum as PyS
 
 
 def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, rsd=False, Nmubin=10, fft='pyfftw', silent=True):  
