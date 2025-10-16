@@ -224,7 +224,8 @@ def CSbox_alpt(config_file, outdir, seed=0, make_ics=True, silent=True):
     # Compute displacement fields at different redshifts
     if not silent: print(f'Computing displacement fields at z=%s' % zsnap[0])
     sys.stdout.flush()
-    subprocess.run([webonx,])
+    if not silent: subprocess.run([webonx,])
+    else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
     sys.stdout.flush()
     return None 
 
