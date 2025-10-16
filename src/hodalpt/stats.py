@@ -5,10 +5,10 @@ galaxies in a box
 
 
 '''
-from pyspectrum import pyspecturm as PyS
+from pyspectrum import pyspectrum as PyS
 
 
-def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, rsd=False, Nmubin=10, fft='pyfftw', silent=True):  
+def Pk_periodic(xyz, w=None, Lbox=1000, Ngrid=360, rsd=False, Nmubin=10, fft='pyfftw', silent=True):  
     ''' calculate the powerspectrum given xyz positions 
 
     Parameters
@@ -20,7 +20,7 @@ def Pk_periodic(xyz, w=None, Lbox=2600, Ngrid=360, rsd=False, Nmubin=10, fft='py
         N-dim array of weights for objects (default: None) 
 
     Lbox : float, optional 
-        box size in Mpc/h (default: 2600) 
+        box size in Mpc/h (default: 1000) 
 
     Ngrid : int, optional 
         FFT grid size (default:360)  
