@@ -26,8 +26,6 @@ import numpy as np
 import nbodykit.lab as NBlab
 from simbig import galaxies as G 
 
-from . import sims 
-
 
 quijote_zsnap_dict = {0.: 4, 0.5: 3, 1.:2, 2.: 1, 3.: 0}
 
@@ -43,15 +41,27 @@ def HODgalaxies(theta_hod, _dir, z=0.5):
             'logM0': ,
             'logM1': ,
             'alpha': ,
-            'mean_occupation_centrals_assembias_param1': , 
-            'mean_occupation_satellites_assembias_param1': ,
-            'conc_gal_bias.satellites': , 
-            'eta_vb.centrals': , 
-            'eta_vb.satellites': }
+            'Abias':, 
+            'eta_conc': , 
+            'eta_cen': , 
+            'eta_sat': }
 
     '''
     # read halo catalog 
     halos = Halos(_dir, z=z) 
+    
+    # parse HOD parameters
+    _theta = {}
+    _theta['logMmin']       = theta_hod['logMmin']
+    _theta['sigma_logM']    = theta_hod['sigma_logM']
+    _theta['logM0']         = theta_hod['logM0']
+    _theta['logM1']         = theta_hod['logM1']
+    _theta['alpha']         = theta_hod['alpha']
+    _theta['mean_occupation_centrals_assembias_param1'] = theta_hod['Abias']
+    _theta['mean_occupation_satellites_assembias_param1'] = theta_hod['Abias']
+    _theta['conc_gal_bias.satellites']  = theta_hod['eta_conc']
+    _theta['eta_vb.centrals']           = theta_hod['eta_cen']
+    _theta['eta_vb.satellites']         = theta_hod['eta_sat']
 
     # populate with HOD
     _Z07AB = G.VelAssembiasZheng07Model() # default simbig HOD model 
@@ -61,7 +71,7 @@ def HODgalaxies(theta_hod, _dir, z=0.5):
             halos.attrs['redshift'],
             halos.attrs['mdef'],
             sec_haloprop_key='halo_nfw_conc')
-    hod = halos.populate(Z07AB, **theta_hod)
+    hod = halos.populate(Z07AB, **_theta)
     return hod 
 
 
@@ -181,6 +191,41 @@ def IC(_dir):
     return _read_snap(os.path.join(_dir, 'ICs', 'ICs'))
 
 
+class Snap(object): 
+    ''' class object for particle snapshots 
+    '''
+    def __init__(self): 
+        self.BoxSize  = None #Mpc/h
+        self.Nall     = None #Total number of particles
+        self.Masses   = None #Masses of the particles in Msun/h
+        self.Omega_m  = None #value of Omega_m
+        self.Omega_l  = None #value of Omega_l
+        self.h        = None #value of h
+        self.redshift = None #redshift of the snapshot
+        self.Hubble   = None #Value of H(z) in km/s/(Mpc/h)
+
+        self.pos      = None #positions in Mpc/h
+        self.vel      = None #peculiar velocities in km/s
+
+    def _read_quijote_header(self, header): 
+        ''' given Quijote simulation header, 
+        '''
+        self.BoxSize  = header['boxsize']/1e3  #Mpc/h
+        self.Nall     = header['nall']         #Total number of particles
+        self.Masses   = header['massarr']*1e10 #Masses of the particles in Msun/h
+        self.Omega_m  = header['omega_m']      #value of Omega_m
+        self.Omega_l  = header['omega_l']      #value of Omega_l
+        self.h        = header['hubble']       #value of h
+        self.redshift = header['redshift']     #redshift of the snapshot
+        self.Hubble   = 100.0*np.sqrt(self.Omega_m*(1.0+self.redshift)**3+self.Omega_l)#Value of H(z) in km/s/(Mpc/h)
+        return None 
+
+    def save_cs(self):
+        ''' save snapshot to binary format that can be ready by CosmicSignals 
+        '''
+        return None 
+
+
 def _cosmo_lookup(setup, ireal): 
     ''' look up cosmology for quijote realization 
     '''
@@ -217,7 +262,7 @@ def _read_snap(snapshot):
 
     # read header
     header = _read_header(snapshot)
-    snap = sims.Snap()
+    snap = Snap()
     snap._read_quijote_header(header)
 
     # read positions, velocities and IDs of the particles
