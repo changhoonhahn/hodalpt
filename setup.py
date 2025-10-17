@@ -23,7 +23,8 @@ INSTALL_REQUIRES = [
         "numpy>1.18",
         "h5py>=2.10",
         "hdf5plugin", 
-        "matplotlib"
+        "matplotlib", 
+        "halotools"
 ]
 # END PROJECT SPECIFIC
 
