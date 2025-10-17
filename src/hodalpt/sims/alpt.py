@@ -170,7 +170,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     return np.vstack([posx, posy, posz]).T
 
 
-def CSbox_alpt(config_file, outdir, seed=0, make_ics=True, silent=True): 
+def CSbox_alpt(config_file, outdir, seed=0, make_ics=True, return_pos=True, silent=True): 
     ''' wrapper for CosmicSignal ALPT code 
     '''
     # parse config file 
@@ -227,9 +227,19 @@ def CSbox_alpt(config_file, outdir, seed=0, make_ics=True, silent=True):
     if not silent: subprocess.run([webonx,])
     else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
     sys.stdout.flush()
-    return None 
 
+    if not return_pos: 
+        return None 
+    else: 
+        suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
 
+        posx = np.fromfile(os.path.join(outdir, 'BOXposx%s' % suffix), dtype=np.float32)
+        posy = np.fromfile(os.path.join(outdir, 'BOXposy%s' % suffix), dtype=np.float32)
+        posz = np.fromfile(os.path.join(outdir, 'BOXposz%s' % suffix), dtype=np.float32)
+        
+        return np.vstack([posx, posy, posz]).T
+
+        
 def _write_input_par_file(ngrid, lbox, seed, sfmodel, lambdath_tweb, lambdath_twebdelta, omegam, zmin, zmax, outdir):
     ff = open(os.path.join(outdir, 'input.par'), 'w')
 
