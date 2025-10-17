@@ -1,19 +1,150 @@
 '''
 
 
-module for reading in Quijote data 
+module for reading in Quijote data. This module assumes that you've downloaded
+the Quijote data in the following way
 
+QUIJOTE/
+    fiducial/ 
+        0/
+            ICS/ 
+            Halos/
+        1/
+        2/
+        ...
+    latin_hypercube_HR/
+        0/
+        1/
+        ...
 
 '''
 import os
 import h5py 
 import hdf5plugin
 import numpy as np 
-# --- emanu --- 
+
+import nbodykit.lab as NBlab
+from simbig import galaxies as G 
+
 from . import sims 
 
 
 quijote_zsnap_dict = {0.: 4, 0.5: 3, 1.:2, 2.: 1, 3.: 0}
+
+
+def HODgalaxies(theta_hod, _dir, z=0.5): 
+    ''' Galaxies populated using HOD on Quijote Rockstar halos. By default, it
+    uses the `simbig` training data HOD, which requires 
+
+    .. code-block:: python
+        theta_hod = {
+            'logMmin': ,
+            'sigma_logM': ,
+            'logM0': ,
+            'logM1': ,
+            'alpha': ,
+            'mean_occupation_centrals_assembias_param1': , 
+            'mean_occupation_satellites_assembias_param1': ,
+            'conc_gal_bias.satellites': , 
+            'eta_vb.centrals': , 
+            'eta_vb.satellites': }
+
+    '''
+    # read halo catalog 
+    halos = Halos(_dir, z=z) 
+
+    # populate with HOD
+    _Z07AB = G.VelAssembiasZheng07Model() # default simbig HOD model 
+
+    Z07AB = _Z07AB.to_halotools(
+            halos.cosmo, 
+            halos.attrs['redshift'],
+            halos.attrs['mdef'],
+            sec_haloprop_key='halo_nfw_conc')
+    hod = halos.populate(Z07AB, **theta_hod)
+    return hod 
+
+
+def Halos(_dir, z=0.5, silent=True): 
+    ''' read in Quijote Rockstar halos given the folder and store it as
+    a nbodykit HaloCatalog object. The HaloCatalog object is convenient for
+    populating with galaxies and etc.
+
+
+    Parameters
+    ----------
+    _dir : string
+        directory that contains the snapshots, ICs, and halos e.g. 
+        /$QUIJOTE/latin_hypercube_HR/0/
+
+    Return
+    ------
+    cat : nbodykit.lab.HaloCatalog
+        Quijote halo catalog
+    '''
+    # redshift snapshot
+    assert z in quijote_zsnap_dict.keys(), 'snapshots are available at z=0, 0.5, 1, 2, 3'
+    snapnum = quijote_zsnap_dict[z]
+
+    # look up cosmology 
+    setup = _dir.split('/')[-2]
+    ireal = _dir.split('/')[-1]
+
+    Om, Ob, h, ns, s8 = _cosmo_lookup(setup, ireal)
+
+    # define cosmology; caution: we don't match sigma8 here
+    cosmo = NBlab.cosmology.Planck15.clone(
+            h=h,
+            Omega0_b=Ob,
+            Omega0_cdm=Om - Ob,
+            m_ncdm=None,
+            n_s=ns)
+    Ol = 1.  - Om
+    Hz = 100.0 * np.sqrt(Om * (1. + z)**3 + Ol) # km/s/(Mpc/h)
+
+    rsd_factor = (1. + z) / Hz
+
+    # rockstar file columns: ID DescID Mvir Vmax Vrms Rvir
+    # Rs Np X Y Z VX VY VZ JX JY JZ Spin rs_klypin Mvir_all
+    # M200b M200c M500c M2500c Xoff Voff spin_bullock
+    # b_to_a c_to_a A[x] A[y] A[z] b_to_a(500c)
+    # c_to_a(500c) A[x](500c) A[y](500c) A[z](500c) T/|U|
+    # M_pe_Behroozi M_pe_Diemer Halfmass_Radius
+    # read in columns: Mvir, Vmax, Vrms, Rvir, Rs, Np,
+    # X, Y, Z, VX, VY, VZ, parent id
+    _rstar = np.loadtxt(os.path.join(_dir, 'Rockstar', 'out_%i_pid.list' % snapnum), usecols=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, -1])
+
+    # select only halos
+    is_halo = (_rstar[:,-1] == -1)
+    rstar = _rstar[is_halo]
+
+    # calculate concentration Rvir/Rs
+    conc = rstar[:,3] / rstar[:,4]
+
+    group_data = {}
+    group_data['Length']    = rstar[:,5].astype(int)
+    group_data['Position']  = rstar[:,6:9]
+    group_data['Velocity']  = rstar[:,9:12]  # km/s * (1 + z)
+    group_data['Mass']      = rstar[:,0]
+
+    # calculate velocity offset
+    group_data['VelocityOffset'] = group_data['Velocity'] * rsd_factor
+
+    # save to ArryCatalog for consistency
+    cat = NBlab.ArrayCatalog(group_data, BoxSize=np.array([1000., 1000., 1000.]))
+    cat = NBlab.HaloCatalog(cat, cosmo=cosmo, redshift=z, mdef='vir')
+    cat['Length'] = group_data['Length']
+    cat['Concentration'] = conc # default concentration is using Dutton & Maccio (2014), which is based only on halo mass.
+
+    cat.attrs['Om'] = Om
+    cat.attrs['Ob'] = Ob
+    cat.attrs['Ol'] = Ol
+    cat.attrs['h'] = h
+    cat.attrs['ns'] = ns
+    cat.attrs['s8'] = s8
+    cat.attrs['Hz'] = Hz # km/s/(Mpc/h)A
+    cat.attrs['rsd_factor'] = rsd_factor
+    return cat
 
 
 def Nbody(_dir, z=0.5): 
@@ -22,7 +153,8 @@ def Nbody(_dir, z=0.5):
     Parameters
     ----------
     _dir : string
-        directory that contains all the snapshots 
+        directory that contains all the snapshots e.g. 
+        /$QUIJOTE/latin_hypercube_HR/0/
 
     z : float
         redshift of the snapshot you want read 
@@ -43,9 +175,38 @@ def IC(_dir):
     Parameters
     ----------
     _dir : string
-        directory that contains the snapshots and IC files 
+        directory that contains the snapshots and IC files e.g.
+        /$QUIJOTE/latin_hypercube_HR/0/
     '''
     return _read_snap(os.path.join(_dir, 'ICs', 'ICs'))
+
+
+def _cosmo_lookup(setup, ireal): 
+    ''' look up cosmology for quijote realization 
+    '''
+    if setup not in ['fiducial', 'latin_hypercube_HR']: 
+        raise NotImplementedError("non-fiducial cosmologies not yet implemented")
+
+    if 'fiducial' in setup: 
+        Om = 0.3175
+        Ob = 0.049
+        h  = 0.6711
+        ns = 0.9624
+        s8 = 0.834
+    elif 'latin_hypercube' in setup:  
+        fcosmo = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'dat',
+                'quijote_lhc_cosmo.txt')
+
+        # Omega_m, Omega_l, h, ns, s8
+        cosmo = np.loadtxt(fcosmo, unpack=True, usecols=range(5)) 
+
+        Om = cosmo[0][ireal]
+        Ob = cosmo[1][ireal]
+        h  = cosmo[2][ireal]
+        ns = cosmo[3][ireal]
+        s8 = cosmo[4][ireal]
+
+    return Om, Ob, h, ns, s8
 
 
 def _read_snap(snapshot):
