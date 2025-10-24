@@ -231,7 +231,14 @@ def CSbox_alpt(config_file, outdir, seed=0, make_ics=True, return_pos=True, sile
     if not return_pos: 
         return None 
     else: 
-        suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
+        try: 
+            suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
+        except IndexError:
+            # let webonx finish running 
+            import time 
+            print('sleeping to let webonx finish') 
+            time.sleep(15)
+            suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
 
         posx = np.fromfile(os.path.join(outdir, 'BOXposx%s' % suffix), dtype=np.float32)
         posy = np.fromfile(os.path.join(outdir, 'BOXposy%s' % suffix), dtype=np.float32)
