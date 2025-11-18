@@ -236,7 +236,7 @@ def CSbox_alpt(config_file, outdir, seed=0, make_ics=True, return_pos=True, sile
         except IndexError:
             # let webonx finish running 
             import time 
-            print('sleeping to let webonx finish') 
+            if not silent: print('sleeping to let webonx finish') 
             time.sleep(15)
             suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
 
