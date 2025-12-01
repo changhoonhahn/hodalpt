@@ -98,7 +98,7 @@ def Halos(_dir, z=0.5, silent=True):
 
     # look up cosmology 
     setup = _dir.split('/')[-2]
-    ireal = _dir.split('/')[-1]
+    ireal = int(_dir.split('/')[-1])
 
     Om, Ob, h, ns, s8 = _cosmo_lookup(setup, ireal)
 
