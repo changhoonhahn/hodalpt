@@ -187,6 +187,68 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
     return ncounts
 
 
+@njit(parallel=True, cache=True, fastmath=True)
+def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, zarr, darr, meandensarr, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs,yobs,zobs, zmin,zmax):
+    ''' compute bias model with non-local terms. more documentation to come. 
+    '''
+    lcell = lbox/ ngrid
+
+    # Allocate tracer field (may be replaced with delta if too memory consuming)
+    ncounts = np.zeros((ngrid,ngrid,ngrid))
+
+    # FIRST LOOP: deterministic bias
+    # Parallelize the outer loop
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+
+                # Initialize positions at the centre of the cell
+                xtmp = (ii+0.5) * lcell
+                ytmp = (jj+0.5) * lcell
+                ztmp = (kk+0.5) * lcell
+
+                # Compute redshift
+                dtmp = np.sqrt((xtmp-xobs)**2 + (ytmp-yobs)**2 + (ztmp-zobs)**2)
+                redshift = np.interp(dtmp, darr, zarr)
+
+                if redshift>=zmin and redshift<zmax:
+
+                    indtweb = int(tweb[ii,jj,kk])-1
+                    inddweb = int(dweb[ii,jj,kk])-1
+
+                    nmeanpars = nmean_arr[:,indtweb,inddweb]
+                    alphapars = alpha_arr[:,indtweb,inddweb]
+                    betapars = beta_arr[:,indtweb,inddweb]
+                    dthpars = dth_arr[:,indtweb,inddweb]
+                    rhoepspars = rhoeps_arr[:,indtweb,inddweb]
+                    epspars = eps_arr[:,indtweb,inddweb]
+
+                    meandens = np.interp(redshift, zzarrbias, meandensarr) 
+                    nmean = np.interp(redshift, zzarrbias, nmeanpars)
+                    alpha = np.interp(redshift, zzarrbias, alphapars)
+                    beta = np.interp(redshift, zzarrbias, betapars)
+                    rhoeps = np.interp(redshift, zzarrbias, rhoepspars)
+                    eps = np.interp(redshift, zzarrbias, epspars)
+                    dth = np.interp(redshift, zzarrbias, dthpars)
+
+                    nmean *= 0.1
+
+                    if delta[ii,jj,kk]<dth:
+                        ncounts[ii,jj,kk] = 0.
+                    else:
+                        ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+
+                    ncounts[ii,jj,kk] = nmean * meandens * ncounts[ii,jj,kk]
+                    pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                    ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
+                else:
+                    ncounts[ii,jj,kk] = 0.
+    
+    return ncounts
+
+
 @njit(parallel=False, cache=True, fastmath=True)
 def prepare_indices_array(posx, posy, posz, ngrid, lbox):
 

@@ -20,8 +20,8 @@ from . import quijote as Q
 
 
 def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
-                 zsnap=0.5, lambdath_tweb=0.0, lambdath_twebdelta = 0.0,
-                 seed=123456, silent=True): 
+                 zsnap=0.5, lambdath_tweb=0.0, lambdath_twebdelta=0.0,
+                 bias_model='local', seed=123456, silent=True): 
     ''' construct CosmicSignal galaxy mock given DM box. Applies the bias model
     in hodalpt.sims.cwc to specified ALPT DM output 
 
@@ -51,6 +51,9 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
     dm_dir : str
         Directory with the ALPT DM files 
+
+    bias_model : str
+        specify which bias model to use 
 
 
     return 
@@ -92,15 +95,17 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     assert os.path.isfile(posz_filename), 'missing %s' % posz_filename
 
     # parse galaxy bias parameters 
-    alpha   = theta_gal['alpha']  
-    beta    = theta_gal['beta']
-    dth     = theta_gal['dth'] 
-    rhoeps  = theta_gal['rhoeps']
-    eps     = theta_gal['eps']     
-    rhoepsprime = 0.
-    epsprime    = 0.
-    nmean   = theta_gal['nmean'] # yes, this is weird but lets not overthink it for now 
-
+    if bias_model  == 'local': 
+        alpha   = theta_gal['alpha']  
+        beta    = theta_gal['beta']
+        dth     = theta_gal['dth'] 
+        rhoeps  = theta_gal['rhoeps']
+        eps     = theta_gal['eps']     
+        rhoepsprime = 0.
+        epsprime    = 0.
+        nmean   = theta_gal['nmean'] # yes, this is weird but lets not overthink it for now 
+    else: 
+        raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
 
     # parse rsd parameters
     bv      = theta_rsd['bv'] 
@@ -146,7 +151,10 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
     # Apply the bias and get halo/galaxy number counts
     if not silent: print('Getting number counts via parametric bias ...')
-    ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime, xobs, yobs, zobs)
+    if bias_model == 'local': 
+        ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime, xobs, yobs, zobs)
+    else: 
+        raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
     if not silent: print('Number counts diagnostics (min, max, mean): ', np.amin(ncounts), np.amax(ncounts), np.mean(ncounts))
 
