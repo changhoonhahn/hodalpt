@@ -163,13 +163,11 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
     for ii in prange(ngrid):
         for jj in range(ngrid):
             for kk in range(ngrid):
-
-
                 # Sample number counts
                 if delta[ii,jj,kk]<dth:
                     ncounts[ii,jj,kk] = 0.
                 else:
-                    ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)# * np.exp(-((1 + delta[ii,jj,kk])/rhoepsprime)**epsprime)
+                    ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps) * np.exp(-((1 + delta[ii,jj,kk])/rhoepsprime)**epsprime)
 
 
     # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
@@ -188,8 +186,14 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
 
 
 @njit(parallel=True, cache=True, fastmath=True)
-def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, zarr, darr, meandensarr, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs,yobs,zobs, zmin,zmax):
+def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, meandens, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs, yobs, zobs):
     ''' compute bias model with non-local terms. more documentation to come. 
+
+
+    see https://arxiv.org/pdf/2403.19337 for details 
+
+    https://github.com/francescosinigaglia/CosmicSignal4SimBIG/blob/622cbebf48d863c77f11c556734212dadbf7108a/boxes/make_galaxy_catalog.py#L822
+    minus redshift dependence
     '''
     lcell = lbox/ ngrid
 
@@ -201,51 +205,28 @@ def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, zarr, darr, meandensarr, nmean
     for ii in prange(ngrid):
         for jj in range(ngrid):
             for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
 
-                # Initialize positions at the centre of the cell
-                xtmp = (ii+0.5) * lcell
-                ytmp = (jj+0.5) * lcell
-                ztmp = (kk+0.5) * lcell
+                nmean   = nmean_arr[indtweb, inddweb]
+                alpha   = alpha_arr[indtweb, inddweb] 
+                beta    = beta_arr[indtweb, inddweb]
+                dth     = dth_arr[indtweb, inddweb]
+                rhoeps  = rhoeps_arr[indtweb, inddweb]
+                eps     = eps_arr[indtweb, inddweb]
 
-                # Compute redshift
-                dtmp = np.sqrt((xtmp-xobs)**2 + (ytmp-yobs)**2 + (ztmp-zobs)**2)
-                redshift = np.interp(dtmp, darr, zarr)
+                nmean *= 0.1 # why? 
 
-                if redshift>=zmin and redshift<zmax:
-
-                    indtweb = int(tweb[ii,jj,kk])-1
-                    inddweb = int(dweb[ii,jj,kk])-1
-
-                    nmeanpars = nmean_arr[:,indtweb,inddweb]
-                    alphapars = alpha_arr[:,indtweb,inddweb]
-                    betapars = beta_arr[:,indtweb,inddweb]
-                    dthpars = dth_arr[:,indtweb,inddweb]
-                    rhoepspars = rhoeps_arr[:,indtweb,inddweb]
-                    epspars = eps_arr[:,indtweb,inddweb]
-
-                    meandens = np.interp(redshift, zzarrbias, meandensarr) 
-                    nmean = np.interp(redshift, zzarrbias, nmeanpars)
-                    alpha = np.interp(redshift, zzarrbias, alphapars)
-                    beta = np.interp(redshift, zzarrbias, betapars)
-                    rhoeps = np.interp(redshift, zzarrbias, rhoepspars)
-                    eps = np.interp(redshift, zzarrbias, epspars)
-                    dth = np.interp(redshift, zzarrbias, dthpars)
-
-                    nmean *= 0.1
-
-                    if delta[ii,jj,kk]<dth:
-                        ncounts[ii,jj,kk] = 0.
-                    else:
-                        ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
-
-                    ncounts[ii,jj,kk] = nmean * meandens * ncounts[ii,jj,kk]
-                    pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
-
-                    ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
-
-                else:
+                if delta[ii,jj,kk] < dth:
                     ncounts[ii,jj,kk] = 0.
-    
+                else:
+                    ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+
+                ncounts[ii,jj,kk] = nmean * meandens * ncounts[ii,jj,kk]
+                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
     return ncounts
 
 
