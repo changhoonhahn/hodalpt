@@ -77,8 +77,8 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     twebdelta_filename  = Fname('TwebDelta_')
 
     vx_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
-    vy_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
-    vz_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
+    vy_filename = dm_dir + 'VEyEULz%3.3f.dat' % zsnap
+    vz_filename = dm_dir + 'VEzEULz%3.3f.dat' % zsnap
 
     posx_filename = Fname('BOXposx')
     posy_filename =	Fname('BOXposy')
@@ -159,7 +159,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     elif bias_model == 'nonlocal0': 
         ncounts = C.biasmodel_exp(Ngrid, Lbox, delta, tweb, twebdelta, 
                                   meandens, nmean, alpha, beta, dth, rhoeps, eps, 
-                                  xobs, yobs, zobs):
+                                  xobs, yobs, zobs)
     else: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
