@@ -84,7 +84,6 @@ def negative_binomial(n, p):
 
 @njit(parallel=False, cache=True, fastmath=True)
 def trilininterp(xx, yy, zz, arrin, lbox, ngrid):
-
     lcell = lbox/ngrid
 
     indxc = int(xx/lcell)
@@ -186,7 +185,7 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
 
 
 @njit(parallel=True, cache=True, fastmath=True)
-def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, meandens, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs, yobs, zobs):
+def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs, yobs, zobs):
     ''' compute bias model with non-local terms. more documentation to come. 
 
 
@@ -211,18 +210,17 @@ def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, meandens, nmean_arr, alpha_arr
                 nmean   = nmean_arr[indtweb, inddweb]
                 alpha   = alpha_arr[indtweb, inddweb] 
                 beta    = beta_arr[indtweb, inddweb]
-                dth     = dth_arr[indtweb, inddweb]
+                dth     = dth_arr[indtweb, inddweb] # could potentially remove 
                 rhoeps  = rhoeps_arr[indtweb, inddweb]
                 eps     = eps_arr[indtweb, inddweb]
-
-                nmean *= 0.1 # why? 
-
+                #nmean *= 0.1 # why? 
+                
                 if delta[ii,jj,kk] < dth:
                     ncounts[ii,jj,kk] = 0.
                 else:
                     ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
 
-                ncounts[ii,jj,kk] = nmean * meandens * ncounts[ii,jj,kk]
+                ncounts[ii,jj,kk] = nmean  * ncounts[ii,jj,kk]
                 pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
 
                 ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
