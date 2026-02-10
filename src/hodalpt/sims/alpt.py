@@ -95,15 +95,17 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     assert os.path.isfile(posz_filename), 'missing %s' % posz_filename
 
     # parse galaxy bias parameters 
+    alpha   = theta_gal['alpha']  
+    beta    = theta_gal['beta']
+    dth     = theta_gal['dth'] 
+    rhoeps  = theta_gal['rhoeps']
+    eps     = theta_gal['eps']     
+    nmean   = theta_gal['nmean'] # yes, this is weird but lets not overthink it for now 
     if bias_model  == 'local': 
-        alpha   = theta_gal['alpha']  
-        beta    = theta_gal['beta']
-        dth     = theta_gal['dth'] 
-        rhoeps  = theta_gal['rhoeps']
-        eps     = theta_gal['eps']     
-        rhoepsprime = 0.
-        epsprime    = 0.
-        nmean   = theta_gal['nmean'] # yes, this is weird but lets not overthink it for now 
+        rhoepsprime = theta_gal['rhoepsprime'] 
+        epsprime    = theta_gal['epsprime']
+    elif bias_model == 'nonlocal0': 
+        meandens    = theta_gal['meandens']
     else: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
 
@@ -142,8 +144,8 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
     # Reshape arrays from 1D to 3D --> reshape only arrays which have mesh structure, e.g. NOT positions
     #delta = np.reshape(delta, (Ngrid,Ngrid,Ngrid))
-    tweb = np.reshape(tweb, (Ngrid,Ngrid,Ngrid))
-    twebdelta = np.reshape(twebdelta, (Ngrid,Ngrid,Ngrid))
+    tweb        = np.reshape(tweb, (Ngrid,Ngrid,Ngrid))
+    twebdelta   = np.reshape(twebdelta, (Ngrid,Ngrid,Ngrid))
 
     vx = np.reshape(vx, (Ngrid,Ngrid,Ngrid))
     vy = np.reshape(vy, (Ngrid,Ngrid,Ngrid))
@@ -152,7 +154,12 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     # Apply the bias and get halo/galaxy number counts
     if not silent: print('Getting number counts via parametric bias ...')
     if bias_model == 'local': 
-        ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime, xobs, yobs, zobs)
+        ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, 
+                                        rhoepsprime, epsprime, xobs, yobs, zobs)
+    elif bias_model == 'nonlocal0': 
+        ncounts = C.biasmodel_exp(Ngrid, Lbox, delta, tweb, twebdelta, 
+                                  meandens, nmean, alpha, beta, dth, rhoeps, eps, 
+                                  xobs, yobs, zobs):
     else: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
