@@ -20,8 +20,8 @@ from . import quijote as Q
 
 
 def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
-                 zsnap=0.5, lambdath_tweb=0.0, lambdath_twebdelta = 0.0,
-                 seed=123456, silent=True): 
+                 zsnap=0.5, lambdath_tweb=0.0, lambdath_twebdelta=0.0,
+                 bias_model='local', seed=123456, silent=True): 
     ''' construct CosmicSignal galaxy mock given DM box. Applies the bias model
     in hodalpt.sims.cwc to specified ALPT DM output 
 
@@ -52,6 +52,9 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     dm_dir : str
         Directory with the ALPT DM files 
 
+    bias_model : str
+        specify which bias model to use 
+
 
     return 
     ------
@@ -74,8 +77,8 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     twebdelta_filename  = Fname('TwebDelta_')
 
     vx_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
-    vy_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
-    vz_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
+    vy_filename = dm_dir + 'VEyEULz%3.3f.dat' % zsnap
+    vz_filename = dm_dir + 'VEzEULz%3.3f.dat' % zsnap
 
     posx_filename = Fname('BOXposx')
     posy_filename =	Fname('BOXposy')
@@ -97,10 +100,12 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     dth     = theta_gal['dth'] 
     rhoeps  = theta_gal['rhoeps']
     eps     = theta_gal['eps']     
-    rhoepsprime = 0.
-    epsprime    = 0.
     nmean   = theta_gal['nmean'] # yes, this is weird but lets not overthink it for now 
-
+    if bias_model  == 'local': 
+        rhoepsprime = theta_gal['rhoepsprime'] 
+        epsprime    = theta_gal['epsprime']
+    else: 
+        raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
 
     # parse rsd parameters
     bv      = theta_rsd['bv'] 
@@ -137,8 +142,8 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
     # Reshape arrays from 1D to 3D --> reshape only arrays which have mesh structure, e.g. NOT positions
     #delta = np.reshape(delta, (Ngrid,Ngrid,Ngrid))
-    tweb = np.reshape(tweb, (Ngrid,Ngrid,Ngrid))
-    twebdelta = np.reshape(twebdelta, (Ngrid,Ngrid,Ngrid))
+    tweb        = np.reshape(tweb, (Ngrid,Ngrid,Ngrid))
+    twebdelta   = np.reshape(twebdelta, (Ngrid,Ngrid,Ngrid))
 
     vx = np.reshape(vx, (Ngrid,Ngrid,Ngrid))
     vy = np.reshape(vy, (Ngrid,Ngrid,Ngrid))
@@ -146,7 +151,15 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
     # Apply the bias and get halo/galaxy number counts
     if not silent: print('Getting number counts via parametric bias ...')
-    ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime, xobs, yobs, zobs)
+    if bias_model == 'local': 
+        ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, 
+                                        rhoepsprime, epsprime, xobs, yobs, zobs)
+    elif bias_model == 'nonlocal0': 
+        ncounts = C.biasmodel_exp(Ngrid, Lbox, delta, tweb, twebdelta, 
+                                  nmean, alpha, beta, dth, rhoeps, eps, 
+                                  xobs, yobs, zobs)
+    else: 
+        raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
     if not silent: print('Number counts diagnostics (min, max, mean): ', np.amin(ncounts), np.amax(ncounts), np.mean(ncounts))
 
@@ -326,7 +339,7 @@ def _write_cosmology_par_input_file(omega_m, omega_b, w0, n_s, wa, sigma8, hpar,
     ff.write('wpar    = %s\n' %str(w0))
     ff.write('n_s     = %s\n' %str(n_s))
     ff.write('wprime  = %s\n' %str(wa))
-    ff.write('sigma8  = %s\n' %str(omega_m))
+    ff.write('sigma8  = %s\n' %str(sigma8))
     ff.write('rsmooth = 8.0\n')
     ff.write('hpar    = %s\n' %str(hpar))
     ff.write('betapar = 1.5\n')

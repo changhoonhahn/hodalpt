@@ -84,7 +84,6 @@ def negative_binomial(n, p):
 
 @njit(parallel=False, cache=True, fastmath=True)
 def trilininterp(xx, yy, zz, arrin, lbox, ngrid):
-
     lcell = lbox/ngrid
 
     indxc = int(xx/lcell)
@@ -163,13 +162,11 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
     for ii in prange(ngrid):
         for jj in range(ngrid):
             for kk in range(ngrid):
-
-
                 # Sample number counts
                 if delta[ii,jj,kk]<dth:
                     ncounts[ii,jj,kk] = 0.
                 else:
-                    ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)# * np.exp(-((1 + delta[ii,jj,kk])/rhoepsprime)**epsprime)
+                    ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps) * np.exp(-((1 + delta[ii,jj,kk])/rhoepsprime)**epsprime)
 
 
     # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
@@ -184,6 +181,50 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
 
                 ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
     
+    return ncounts
+
+
+@njit(parallel=True, cache=True, fastmath=True)
+def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs, yobs, zobs):
+    ''' compute bias model with non-local terms. more documentation to come. 
+
+
+    see https://arxiv.org/pdf/2403.19337 for details 
+
+    https://github.com/francescosinigaglia/CosmicSignal4SimBIG/blob/622cbebf48d863c77f11c556734212dadbf7108a/boxes/make_galaxy_catalog.py#L822
+    minus redshift dependence
+    '''
+    lcell = lbox/ ngrid
+
+    # Allocate tracer field (may be replaced with delta if too memory consuming)
+    ncounts = np.zeros((ngrid,ngrid,ngrid))
+
+    # FIRST LOOP: deterministic bias
+    # Parallelize the outer loop
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                nmean   = nmean_arr[indtweb, inddweb]
+                alpha   = alpha_arr[indtweb, inddweb] 
+                beta    = beta_arr[indtweb, inddweb]
+                dth     = dth_arr[indtweb, inddweb] # could potentially remove 
+                rhoeps  = rhoeps_arr[indtweb, inddweb]
+                eps     = eps_arr[indtweb, inddweb]
+                #nmean *= 0.1 # why? 
+                
+                if delta[ii,jj,kk] < dth:
+                    ncounts[ii,jj,kk] = 0.
+                else:
+                    ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+
+                ncounts[ii,jj,kk] = nmean  * ncounts[ii,jj,kk]
+                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
     return ncounts
 
 
