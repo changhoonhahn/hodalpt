@@ -185,7 +185,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
 def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
                lbox=1000., zsnap=0.5, lambdath_tweb=0., lambdath_twebdelta=0., 
-               make_ics=True, return_pos=True, silent=True): 
+               make_ics=True, subgrid=True, return_pos=True, silent=True): 
     ''' wrapper for CosmicSignal ALPT code 
     '''
     zsnap = [zsnap] 
@@ -231,16 +231,16 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
     else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
     sys.stdout.flush()
 
-    # write input parameter file for subgrid model 
-    _write_input_par_file(ngrid, lbox, seed, -70, lambdath_tweb,
-                          lambdath_twebdelta, omega_m, dgrowth_short, zmin, zmax, outdir)
-
-    # run subgrid model 
-    if not silent: print(f'Running subgrid model')
-    sys.stdout.flush()
-    if not silent: subprocess.run([webonx,])
-    else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
-    sys.stdout.flush()
+    if subgrid: 
+        # write input parameter file for subgrid model 
+        _write_input_par_file(ngrid, lbox, seed, -70, lambdath_tweb,
+                              lambdath_twebdelta, omega_m, dgrowth_short, zmin, zmax, outdir)
+        # run subgrid model 
+        if not silent: print(f'Running subgrid model')
+        sys.stdout.flush()
+        if not silent: subprocess.run([webonx,])
+        else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
+        sys.stdout.flush()
 
     if not return_pos: 
         return None 
@@ -254,9 +254,14 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
             time.sleep(15)
             suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
 
-        posx = np.fromfile(os.path.join(outdir, 'BOXposx%s' % suffix), dtype=np.float32)
-        posy = np.fromfile(os.path.join(outdir, 'BOXposy%s' % suffix), dtype=np.float32)
-        posz = np.fromfile(os.path.join(outdir, 'BOXposz%s' % suffix), dtype=np.float32)
+        if not subgrid: 
+            posx = np.fromfile(os.path.join(outdir, 'BOXposx%s' % suffix), dtype=np.float32)
+            posy = np.fromfile(os.path.join(outdir, 'BOXposy%s' % suffix), dtype=np.float32)
+            posz = np.fromfile(os.path.join(outdir, 'BOXposz%s' % suffix), dtype=np.float32)
+        else: 
+            posx = np.fromfile(os.path.join(outdir, 'super_BOXposx%s' % suffix).replace('ALPTrs', 'ALPTrsrs'), dtype=np.float32)
+            posy = np.fromfile(os.path.join(outdir, 'super_BOXposy%s' % suffix).replace('ALPTrs', 'ALPTrsrs'), dtype=np.float32)
+            posz = np.fromfile(os.path.join(outdir, 'super_BOXposz%s' % suffix).replace('ALPTrs', 'ALPTrsrs'), dtype=np.float32)
         
         return np.vstack([posx, posy, posz]).T
 
@@ -280,7 +285,7 @@ def _write_input_par_file(ngrid, lbox, seed, sfmodel, lambdath_tweb, lambdath_tw
     ff.write('fnameDM = deltaBOXOM%3.3fOL%3.3fG%dV%s_ALPTrs5.000z%3.3f.dat\n' %(omegam, omegal, ngrid, str(round(float(lbox),1)), zmin))
     ff.write('sfmodel = %s\n' %str(sfmodel))
     ff.write('filter = 1\n')
-    ff.write('dgrowth_short = %3.3f\n' % dgrowth_short)
+    ff.write('dgrowth_short = %s\n' % str(dgrowth_short))
     ff.write('rsml = 50.0\n')
     ff.write('dtol = 0.005\n')
     ff.write('curlfrac = 0\n')
