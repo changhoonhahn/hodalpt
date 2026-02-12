@@ -286,7 +286,7 @@ def _write_input_par_file(ngrid, lbox, seed, sfmodel, lambdath_tweb, lambdath_tw
     ff.write('sfmodel = %s\n' %str(sfmodel))
     ff.write('filter = 1\n')
     ff.write('dgrowth_short = %s\n' % str(dgrowth_short))
-    ff.write('rsml = 50.0\n')
+    ff.write('rsml = 1.0\n')
     ff.write('dtol = 0.005\n')
     ff.write('curlfrac = 0\n')
     ff.write('write_box = true\n')
