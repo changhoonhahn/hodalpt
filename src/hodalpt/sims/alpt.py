@@ -61,6 +61,9 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     xyz : array 
         Ngal x 3 array specifying the x, y, z position of galaxies.
     '''
+    if bias_model not in ['local', 'nonlocal0']: 
+        raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
+
     np.random.seed(seed)
 
     assert os.path.isdir(dm_dir), "specify correct directory for the DM files"
@@ -106,8 +109,6 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     if bias_model  == 'local': 
         rhoepsprime = theta_gal['rhoepsprime'] 
         epsprime    = theta_gal['epsprime']
-    else: 
-        raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
 
     # parse rsd parameters
     bv      = theta_rsd['bv'] 

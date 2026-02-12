@@ -219,8 +219,24 @@ def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr
                     ncounts[ii,jj,kk] = 0.
                 else:
                     ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+    
+    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
+    denstot = np.sum(ncounts) / lbox**3
 
-                ncounts[ii,jj,kk] = nmean  * ncounts[ii,jj,kk]
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                nmean   = nmean_arr[indtweb, inddweb]
+                alpha   = alpha_arr[indtweb, inddweb] 
+                beta    = beta_arr[indtweb, inddweb]
+                dth     = dth_arr[indtweb, inddweb] # could potentially remove 
+                rhoeps  = rhoeps_arr[indtweb, inddweb]
+                eps     = eps_arr[indtweb, inddweb]
+
+                ncounts[ii,jj,kk] = nmean / denstot * ncounts[ii,jj,kk]
                 pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
 
                 ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
