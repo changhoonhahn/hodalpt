@@ -21,7 +21,7 @@ from . import quijote as Q
 
 def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
                  zsnap=0.5, lambdath_tweb=0.0, lambdath_twebdelta=0.0,
-                 bias_model='local', seed=123456, silent=True): 
+                 bias_model='local', subgrid=False, seed=123456, silent=True): 
     ''' construct CosmicSignal galaxy mock given DM box. Applies the bias model
     in hodalpt.sims.cwc to specified ALPT DM output 
 
@@ -71,18 +71,20 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     if not silent: print(suffix)
     if not silent: print('Omega_m %f' % omega_m) 
     def Fname(prefix): return os.path.join(dm_dir, '%s%s' % (prefix, suffix))
-
-    dm_filename         = Fname('deltaBOX')
+    
+    prefix_subgrid = ''
+    if subgrid: prefix_subgrid = 'super_'
+    dm_filename         = Fname(prefix_subgrid+'deltaBOX')
     tweb_filename       = Fname('Tweb_')
     twebdelta_filename  = Fname('TwebDelta_')
 
     vx_filename = dm_dir + 'VExEULz%3.3f.dat' % zsnap
     vy_filename = dm_dir + 'VEyEULz%3.3f.dat' % zsnap
     vz_filename = dm_dir + 'VEzEULz%3.3f.dat' % zsnap
-
-    posx_filename = Fname('BOXposx')
-    posy_filename =	Fname('BOXposy')
-    posz_filename = Fname('BOXposz')
+    
+    posx_filename = Fname(prefix_subgrid+'BOXposx')
+    posy_filename =	Fname(prefix_subgrid+'BOXposy')
+    posz_filename = Fname(prefix_subgrid+'BOXposz')
     
     assert os.path.isfile(dm_filename), 'missing %s' % dm_filename
     assert os.path.isfile(tweb_filename), 'missing %s' % tweb_filename
@@ -134,6 +136,11 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     posx = np.fromfile(posx_filename, dtype=np.float32)   
     posy = np.fromfile(posy_filename, dtype=np.float32) 
     posz = np.fromfile(posz_filename, dtype=np.float32)
+
+    # impose boundary conditions 
+    posx = (posx + Lbox) % Lbox
+    posy = (posy + Lbox) % Lbox
+    posz = (posz + Lbox) % Lbox
 
     # Now they are velocity vectors
     vx = np.fromfile(vx_filename, dtype=np.float32)  
@@ -231,7 +238,10 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
     else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
     sys.stdout.flush()
 
+    prefix_subgrid = ''
     if subgrid: 
+        prefix_subgrid = 'super_'
+
         # write input parameter file for subgrid model 
         _write_input_par_file(ngrid, lbox, seed, -70, lambdath_tweb,
                               lambdath_twebdelta, omega_m, dgrowth_short, zmin, zmax, outdir)
@@ -254,14 +264,14 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
             time.sleep(15)
             suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
 
-        if not subgrid: 
-            posx = np.fromfile(os.path.join(outdir, 'BOXposx%s' % suffix), dtype=np.float32)
-            posy = np.fromfile(os.path.join(outdir, 'BOXposy%s' % suffix), dtype=np.float32)
-            posz = np.fromfile(os.path.join(outdir, 'BOXposz%s' % suffix), dtype=np.float32)
-        else: 
-            posx = np.fromfile(os.path.join(outdir, 'super_BOXposx%s' % suffix).replace('ALPTrs', 'ALPTrsrs'), dtype=np.float32)
-            posy = np.fromfile(os.path.join(outdir, 'super_BOXposy%s' % suffix).replace('ALPTrs', 'ALPTrsrs'), dtype=np.float32)
-            posz = np.fromfile(os.path.join(outdir, 'super_BOXposz%s' % suffix).replace('ALPTrs', 'ALPTrsrs'), dtype=np.float32)
+        posx = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposx%s' % suffix), dtype=np.float32)
+        posy = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposy%s' % suffix), dtype=np.float32)
+        posz = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposz%s' % suffix), dtype=np.float32)
+
+        # impose boundary conditions 
+        posx = (posx + lbox) % lbox
+        posy = (posy + lbox) % lbox
+        posz = (posz + lbox) % lbox
         
         return np.vstack([posx, posy, posz]).T
 
