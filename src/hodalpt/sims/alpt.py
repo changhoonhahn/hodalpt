@@ -116,14 +116,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     betarsd = theta_rsd['betarsd']
     gamma   = theta_rsd['gamma'] 
     
-    # Observer positions            
-    obspos = [Lbox/2., Lbox/2., Lbox/2.]
-
     lcell = Lbox/Ngrid
-
-    xobs = obspos[0]
-    yobs = obspos[1]
-    zobs = obspos[2]
     
     if not silent: print('Reading input ...')
     # read inputs 
@@ -161,11 +154,10 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     if not silent: print('Getting number counts via parametric bias ...')
     if bias_model == 'local': 
         ncounts = C.biasmodel_local_box(Ngrid, Lbox, delta,  nmean, alpha, beta, dth, rhoeps, eps, 
-                                        rhoepsprime, epsprime, xobs, yobs, zobs)
+                                        rhoepsprime, epsprime)
     elif bias_model == 'nonlocal0': 
-        ncounts = C.biasmodel_exp(Ngrid, Lbox, delta, tweb, twebdelta, 
-                                  nmean, alpha, beta, dth, rhoeps, eps, 
-                                  xobs, yobs, zobs)
+        ncounts = C.biasmodel_nonlocal_box(Ngrid, Lbox, delta, tweb, twebdelta, 
+                                  nmean, alpha, beta, dth, rhoeps, eps)
     else: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
@@ -184,8 +176,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     posx, posy, posz = C.real_to_redshift_space_local_box(delta, tweb, posx,
                                                           posy, posz, vx, vy,
                                                           vz, Ngrid, Lbox,
-                                                          xobs, yobs, zobs, bv,
-                                                          bb, betarsd, gamma,
+                                                          bv, bb, betarsd, gamma,
                                                           zsnap, omega_m) 
     
     return np.vstack([posx, posy, posz]).T

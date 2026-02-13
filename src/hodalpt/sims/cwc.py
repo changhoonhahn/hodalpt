@@ -16,8 +16,7 @@ from numba.typed import List
 
 @njit(parallel=True, fastmath=True, cache=True)
 def real_to_redshift_space_local_box(delta, tweb, posx, posy, posz, vx, vy, vz,
-                                     ngrid, lbox, xobs, yobs, zobs, bv, bb,
-                                     betarsd, gamma, redshift, omega_m):
+                                     ngrid, lbox, bv, bb, betarsd, gamma, redshift, omega_m):
     # Real to redshift space (local)
 
     H0 = 100.
@@ -150,7 +149,7 @@ def trilininterp(xx, yy, zz, arrin, lbox, ngrid):
 
 
 @njit(parallel=True, cache=True, fastmath=True)
-def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime, xobs,yobs,zobs):
+def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime):
     # Compute bias model
     lcell = lbox/ ngrid
 
@@ -185,7 +184,7 @@ def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps
 
 
 @njit(parallel=True, cache=True, fastmath=True)
-def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr, xobs, yobs, zobs):
+def biasmodel_nonlocal_box(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr):
     ''' compute bias model with non-local terms. more documentation to come. 
 
 
@@ -198,6 +197,8 @@ def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr
 
     # Allocate tracer field (may be replaced with delta if too memory consuming)
     ncounts = np.zeros((ngrid,ngrid,ngrid))
+    
+    denstot_arr = np.zeros((4,4))
 
     # FIRST LOOP: deterministic bias
     # Parallelize the outer loop
@@ -219,9 +220,10 @@ def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr
                     ncounts[ii,jj,kk] = 0.
                 else:
                     ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+                    denstot_arr[indtweb,inddweb] += ncounts[ii,jj,kk]
     
     # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
-    denstot = np.sum(ncounts) / lbox**3
+    denstot /= lbox**3
 
     for ii in prange(ngrid):
         for jj in range(ngrid):
@@ -229,17 +231,14 @@ def biasmodel_exp(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr
                 indtweb = int(tweb[ii,jj,kk])-1
                 inddweb = int(dweb[ii,jj,kk])-1
 
-                nmean   = nmean_arr[indtweb, inddweb]
-                alpha   = alpha_arr[indtweb, inddweb] 
-                beta    = beta_arr[indtweb, inddweb]
-                dth     = dth_arr[indtweb, inddweb] # could potentially remove 
-                rhoeps  = rhoeps_arr[indtweb, inddweb]
-                eps     = eps_arr[indtweb, inddweb]
+                denstot = denstot_arr[indtweb,inddweb]
+                nmean = nmean_arr[indtweb,inddweb]
 
                 ncounts[ii,jj,kk] = nmean / denstot * ncounts[ii,jj,kk]
                 pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
 
                 ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
 
     return ncounts
 
