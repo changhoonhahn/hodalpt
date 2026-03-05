@@ -206,5 +206,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 webonx
-./nb/
 nb/
+!nb/subgrid_nlb_tests.ipynb
+!nb/cosmicsignal_demo.ipynb
