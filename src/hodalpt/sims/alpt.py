@@ -68,12 +68,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
 
     assert os.path.isdir(dm_dir), "specify correct directory for the DM files"
 
-    # find file suffix and check for consistency 
-    suffix = 'OM'+(glob.glob(os.path.join(dm_dir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
-    omega_m = float(suffix.split('OM')[1].split('OL')[0])
-    if not silent: print(suffix)
-    if not silent: print('Omega_m %f' % omega_m) 
-    def Fname(prefix): return os.path.join(dm_dir, '%s%s' % (prefix, suffix))
+    def Fname(prefix): return os.path.join(dm_dir, '%s.dat' % prefix)
     
     prefix_subgrid = ''
     if subgrid: prefix_subgrid = 'super_'
@@ -248,18 +243,9 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
     if not return_pos: 
         return None 
     else: 
-        try: 
-            suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
-        except IndexError:
-            # let webonx finish running 
-            import time 
-            if not silent: print('sleeping to let webonx finish') 
-            time.sleep(15)
-            suffix = 'OM'+(glob.glob(os.path.join(outdir, 'deltaBOXOM*'))[0].split('deltaBOXOM')[-1]).split('.gz')[0]
-
-        posx = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposx%s' % suffix), dtype=np.float32)
-        posy = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposy%s' % suffix), dtype=np.float32)
-        posz = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposz%s' % suffix), dtype=np.float32)
+        posx = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposx.dat'), dtype=np.float32)
+        posy = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposy.dat'), dtype=np.float32)
+        posz = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposz.dat'), dtype=np.float32)
 
         # impose boundary conditions 
         posx = (posx + lbox) % lbox
@@ -272,9 +258,6 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
 def _write_input_par_file(ngrid, lbox, seed, sfmodel, lambdath_tweb, lambdath_twebdelta, omegam, dgrowth_short, zmin, zmax, outdir):
     ff = open(os.path.join(outdir, 'input.par'), 'w')
     
-    omegam = _cpp_round(omegam, decimals=3) # convert python rounding to C++ rounding 
-    omegal = 1. - omegam
-    
     ff.write('#---------------------------------------------------------------------\n')
     ff.write('# BOX: parameter file\n')
     ff.write('#---------------------------------------------------------------------\n')
@@ -285,7 +268,7 @@ def _write_input_par_file(ngrid, lbox, seed, sfmodel, lambdath_tweb, lambdath_tw
     ff.write('Lx = %s # Box length in x-direction [Mpc/h]\n' %str(lbox))
     ff.write('#---------------------------------------------------------------------\n')
     ff.write('fnameIC = Quijote_ICs_delta_z127_n256_CIC.DAT# Attention no space after = unless you give a name\n')
-    ff.write('fnameDM = deltaBOXOM%3.3fOL%3.3fG%dV%s_ALPTrs5.000z%3.3f.dat\n' %(omegam, omegal, ngrid, str(round(float(lbox),1)), zmin))
+    ff.write('fnameDM = deltaBOX.dat\n')
     ff.write('sfmodel = %s\n' %str(sfmodel))
     ff.write('filter = 1\n')
     ff.write('dgrowth_short = %s\n' % str(dgrowth_short))
