@@ -12,10 +12,10 @@ import numpy as np
 import subprocess
 import os, sys, glob 
 
-import configparser
-from numba import njit, prange
+import camb
 
 from . import cwc as C
+from . import util as U 
 from . import quijote as Q
 
 
@@ -178,10 +178,97 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     return np.vstack([posx, posy, posz]).T
 
 
-def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
+def CSbox_alpt(cosmo, outdir, seed=0, dgrowth_short=5., ngrid=256,
+               lbox=1000., zsnap=0.5, lambdath_tweb=0., lambdath_twebdelta=0., 
+               Nmesh_ic=512, Nsample_ic=256, subgrid=True, return_pos=True,
+               silent=True): 
+    ''' run CosmicSignal ALPT code for given LCDM cosmological parameters
+    '''
+    zsnap = [zsnap] 
+    assert len(zsnap) == 1
+    zmin = zsnap[0] # hardcoded
+    zmax = zsnap[0] # hardcoded
+
+    # cosmological parameters
+    Omega_m = cosmo['Omega_m'] 
+    Omega_b = cosmo['Omega_b']
+    n_s     = cosmo['n_s']
+    sigma8  = cosmo['sigma_8']
+    h       = cosmo['h']
+    w0      = -1 # hardcoded to LCDM for now 
+    wa      = 0 # hardcoded to LCDM for now 
+
+    ic_paramfile = '2LPT.param' # hardcoded IC filename in Quijote 
+
+    # webonx executable should be in same directory as this script
+    scriptdir = os.path.dirname(__file__)
+    webonx = os.path.join(scriptdir, 'webonx')
+    assert os.path.isfile(webonx), "webonx executable not found"
+
+    os.makedirs(outdir, exist_ok=True) # make output directory in case it doesn't exist 
+
+    # Write input redshift snapshots file
+    _write_z_input_file(zsnap, outdir)
+
+    # Write cosmological parameters file 
+    _write_cosmology_par_input_file(Omega_m, Omega_b, w0, n_s, wa, sigma8, h, outdir)
+
+    # write input parameter file 
+    _write_input_par_file(ngrid, lbox, seed, 1, lambdath_tweb,
+                          lambdath_twebdelta, Omega_m, dgrowth_short, zmin, zmax, outdir)
+    
+    os.chdir(outdir)
+
+    if not silent: print(f'Generating ICs and writing out delta IC')
+    # grid ICs and get delta
+    delta = generate_IC(Omega_m, Omega_b, h, n_s, sigma8, lbox, ngrid, seed,
+                        ic_dir=outdir, Nmesh=Nmesh_ic, Nsample=Nsample_ic,
+                        silent=silent)
+
+    # write delta to outdir 
+    delta.astype('float32').tofile(os.path.join(outdir, 'Quijote_ICs_delta_z127_n256_CIC.DAT'))
+
+
+    # Compute displacement fields at different redshifts
+    if not silent: print(f'Computing displacement fields at z=%s' % zsnap[0])
+    sys.stdout.flush()
+    if not silent: subprocess.run([webonx,])
+    else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
+    sys.stdout.flush()
+
+    prefix_subgrid = ''
+    if subgrid: 
+        prefix_subgrid = 'super_'
+
+        # write input parameter file for subgrid model 
+        _write_input_par_file(ngrid, lbox, seed, -70, lambdath_tweb,
+                              lambdath_twebdelta, Omega_m, dgrowth_short, zmin, zmax, outdir)
+        # run subgrid model 
+        if not silent: print(f'Running subgrid model')
+        sys.stdout.flush()
+        if not silent: subprocess.run([webonx,])
+        else: subprocess.run([webonx,], stdout=subprocess.DEVNULL)
+        sys.stdout.flush()
+
+    if not return_pos: 
+        return None 
+    else: 
+        posx = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposx.dat'), dtype=np.float32)
+        posy = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposy.dat'), dtype=np.float32)
+        posz = np.fromfile(os.path.join(outdir, prefix_subgrid+'BOXposz.dat'), dtype=np.float32)
+
+        # impose boundary conditions 
+        posx = (posx + lbox) % lbox
+        posy = (posy + lbox) % lbox
+        posz = (posz + lbox) % lbox
+        
+        return np.vstack([posx, posy, posz]).T
+
+
+def CSbox_alpt_Q(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
                lbox=1000., zsnap=0.5, lambdath_tweb=0., lambdath_twebdelta=0., 
                make_ics=True, subgrid=True, return_pos=True, silent=True): 
-    ''' wrapper for CosmicSignal ALPT code 
+    ''' run CosmicSignal ALPT for Quijote initial condiitons 
     '''
     zsnap = [zsnap] 
     assert len(zsnap) == 1
@@ -254,7 +341,7 @@ def CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
         
         return np.vstack([posx, posy, posz]).T
 
-        
+
 def _write_input_par_file(ngrid, lbox, seed, sfmodel, lambdath_tweb, lambdath_twebdelta, omegam, dgrowth_short, zmin, zmax, outdir):
     ff = open(os.path.join(outdir, 'input.par'), 'w')
     
@@ -376,103 +463,155 @@ def _make_ics_quijote(ic_path, lbox, ngrid):
     
     weight = np.ones(len(posx))                                                                                                         
 
-    delta = get_cic(posx, posy, posz, weight, float(lbox), ngrid)
+    delta = U.get_cic(posx, posy, posz, weight, float(lbox), ngrid)
     delta = delta.flatten()
     delta = delta/np.mean(delta)-1.
 
     return delta 
 
 
-@njit(parallel=False, cache=True, fastmath=True)
-def get_cic(posx, posy, posz, weight, lbox, ngrid):
-    ''' cloud in cell gridding of x, y, z positions 
+def generate_IC(Omega_m, Omega_b, h, ns, s8, lbox, ngrid, seed, ic_dir=None, Nmesh=512,
+                Nsample=256, silent=True): 
+    ''' generate ICs using 2LPTicQ in a way consistent with Quijote simulations
     '''
-    lcell = lbox/ngrid
+    # get CAMB matter power spectrum 
+    k, zs, Pkmm = camb_Pkmm0(Omega_m, Omega_b, h, ns, s8)
 
-    delta = np.zeros((ngrid,ngrid,ngrid))
+    # write power spectrum to file 
+    for j,z in enumerate(zs):
+        np.savetxt(os.path.join(ic_dir, 'Pk_mm_z=%.3f.txt' % z), np.transpose([k,Pkmm[j,:]]))
 
-    for ii in prange(len(posx)):
-        xx = posx[ii]
-        yy = posy[ii]
-        zz = posz[ii]
+    # write input file for 2LPTic
+    _write_2lptic_param(Omega_m, Omega_b, h, ns, s8, seed, 
+                        Lbox=lbox, 
+                        Nmesh=Nmesh,
+                        Nsample=Nsample, 
+                        ic_dir=ic_dir)
+    f2lptparam = os.path.join(ic_dir, '2LPT.param') 
+    
+    # run 2LPT 
+    scriptdir = os.path.dirname(__file__)
+    twolpt = os.path.join(scriptdir, '2LPTic')
+    assert os.path.isfile(twolpt), "2LPTic executable not found"
+    
+    if not silent: print(f'Computing 2LPT IC')
+    sys.stdout.flush()
+    if not silent: subprocess.run([twolpt, f2lptparam])
+    else: subprocess.run([twolpt, f2lptparam], stdout=subprocess.DEVNULL)
+    sys.stdout.flush()
 
-        if xx<0:
-            xx += lbox
-        if xx>=lbox:
-            xx -= lbox
+    # read ICs
+    if not silent: print(f'reading in IC')
+    _, pos, vel, _ = U.read_gadget_ic(os.path.join(ic_dir, 'ics'))
+    pos = pos/1000.
 
-        if yy<0:
-            yy += lbox
-        if yy>=lbox:
-            yy -= lbox
+    weight = np.ones(pos.shape[0])                                                                                                         
 
-        if zz<0:
-            zz += lbox
-        if zz>=lbox:
-            zz -= lbox
-
-
-        indxc = int(xx/lcell)
-        indyc = int(yy/lcell)
-        indzc = int(zz/lcell)
-
-        wxc = xx/lcell - indxc
-        wyc = yy/lcell - indyc
-        wzc = zz/lcell - indzc
-
-        if wxc <=0.5:
-            indxl = indxc - 1
-            if indxl<0:
-                indxl += ngrid
-            wxc += 0.5
-            wxl = 1 - wxc
-        elif wxc >0.5:
-            indxl = indxc + 1
-            if indxl>=ngrid:
-                indxl -= ngrid
-            wxl = wxc - 0.5
-            wxc = 1 - wxl
-
-        if wyc <=0.5:
-            indyl = indyc - 1
-            if indyl<0:
-                indyl += ngrid
-            wyc += 0.5
-            wyl = 1 - wyc
-        elif wyc >0.5:
-            indyl = indyc + 1
-            if indyl>=ngrid:
-                indyl -= ngrid
-            wyl = wyc - 0.5
-            wyc = 1 - wyl
-
-        if wzc <=0.5:
-            indzl = indzc - 1
-            if indzl<0:
-                indzl += ngrid
-            wzc += 0.5
-            wzl = 1 - wzc
-        elif wzc >0.5:
-            indzl = indzc + 1
-            if indzl>=0:
-                indzl -= ngrid
-            wzl = wzc - 0.5
-            wzc = 1 - wzl                                                                                                 
-
-        ww = weight[ii]
-
-        delta[indxc,indyc,indzc] += ww * wxc*wyc*wzc
-        delta[indxl,indyc,indzc] += ww * wxl*wyc*wzc
-        delta[indxc,indyl,indzc] += ww * wxc*wyl*wzc
-        delta[indxc,indyc,indzl] += ww * wxc*wyc*wzl
-        delta[indxl,indyl,indzc] += ww * wxl*wyl*wzc
-        delta[indxc,indyl,indzl] += ww * wxc*wyl*wzl
-        delta[indxl,indyc,indzl] += ww * wxl*wyc*wzl
-        delta[indxl,indyl,indzl] += ww * wxl*wyl*wzl
-
+    delta = U.get_cic(pos[:,0], pos[:,1], pos[:,2], weight, float(lbox), ngrid)
+    delta = delta.flatten()
+    delta = delta/np.mean(delta)-1.
     return delta
 
 
-def _cpp_round(arr, decimals=3):
-    factor = 10.0 ** decimals
-    return np.sign(arr) * np.floor(np.abs(arr) * factor + 0.5) / factor
+def _write_2lptic_param(Omega_m, Omega_b, h, ns, s8, seed, Lbox=1000.,
+                        Nmesh=512, Nsample=256, ic_dir=None): 
+    ''' write 2LPT.param file for 2LPTicQ 
+    '''
+    if (Nsample % 64) != 0: raise ValueError('should be divisible by 64') 
+    fglass = os.path.join(os.path.dirname(__file__), 'GLASS',
+                          'dummy_glass_dmonly_64.dat')
+    fpk = os.path.join(ic_dir, 'Pk_mm_z=0.000.txt')
+    
+    a = """
+    Nmesh            %i      
+    Nsample          %i       
+    Box              %f
+    FileBase         ics         
+    OutputDir        %s          
+    GlassFile        %s
+    GlassTileFac     %i         
+    Omega            %.4f    
+    OmegaLambda      %.4f    
+    OmegaBaryon      0.0000    
+    OmegaDM_2ndSpecies  0.0    
+    HubbleParam      %.4f    
+    Redshift         127       
+    Sigma8           %.4f       
+    SphereMode       0         
+    WhichSpectrum    2         
+    FileWithInputSpectrum  %s
+    InputSpectrum_UnitLength_in_cm  3.085678e24 
+    ShapeGamma       0.201     
+    PrimordialIndex  1.0       
+    
+    Phase_flip          0      
+    RayleighSampling    1      
+    Seed                %d      
+    
+    NumFilesWrittenInParallel 1  
+    UnitLength_in_cm          3.085678e21  
+    UnitMass_in_g             1.989e43     
+    UnitVelocity_in_cm_per_s  1e5          
+    
+    WDM_On               0      
+    WDM_Vtherm_On        0      
+    WDM_PartMass_in_kev  10.0   
+    """ % (Nmesh, Nsample, Lbox*1000., ic_dir+'/', 
+           fglass, Nsample/64, 
+           Omega_m, 1.0-Omega_m, h, s8, fpk, seed) 
+
+    f = open('%s/2LPT.param' % ic_dir, 'w')
+    f.write(a)
+    f.close() 
+    return None 
+
+
+def camb_Pkmm0(Omega_m, Omega_b, h, ns, s8):
+    ''' get z=0 matter power spectrum given LCDM cosmological parameters using
+    CAMB. This is based on Paco's script:
+    https://github.com/franciscovillaescusa/Quijote-simulations/blob/master/latin_hypercube/parameters_file.py 
+    '''
+    # hardcoded CAMB parameters
+    hierarchy    = 'degenerate'
+    Mnu          = 0.0 #eV
+    Nnu          = 0   #number of massive neutrinos
+    Neff         = 3.046
+    As           = 2.13e-9
+    tau          = None
+    Omega_k      = 0.0
+    pivot_scalar = 0.05
+    pivot_tensor = 0.05
+    kmax         = 10.0
+    k_per_logint = 20
+    redshifts    = [0]
+    
+    # run CAMB
+    Omega_c  = Omega_m - Omega_b
+    pars     = camb.CAMBparams()
+
+    # set accuracy of the calculation
+    # HighAccuracyDefault is not defunct
+    pars.set_accuracy(AccuracyBoost=5.0, lSampleBoost=5.0, lAccuracyBoost=5.0, #HighAccuracyDefault=True,
+                      DoLateRadTruncation=True)
+
+    # set value of the cosmological parameters
+    pars.set_cosmology(H0=h*100.0, ombh2=Omega_b*h**2, omch2=Omega_c*h**2, 
+                       mnu=Mnu, omk=Omega_k, neutrino_hierarchy=hierarchy, 
+                       num_massive_neutrinos=Nnu, nnu=Neff, tau=tau)
+                   
+    # set the value of the primordial power spectrum parameters
+    pars.InitPower.set_params(As=As, ns=ns, 
+                              pivot_scalar=pivot_scalar, pivot_tensor=pivot_tensor)
+
+    # set redshifts, k-range and k-sampling
+    pars.set_matter_power(redshifts=redshifts, kmax=kmax, k_per_logint=k_per_logint)
+
+    # compute results
+    results = camb.get_results(pars)
+
+    # interpolate to get Pmm, Pcc...etc
+    k, zs, Pkmm = results.get_matter_power_spectrum(minkh=2e-5, maxkh=kmax, 
+                                                    npoints=400, var1=7, var2=7, 
+                                                    have_power_spectra=True, 
+                                                    params=None)
+    return k, zs, Pkmm 
