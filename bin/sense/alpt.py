@@ -27,7 +27,6 @@ outdir = os.path.join(dir_alpt, str(i_sobol), 'alpt')
 print('ALPT running for %i' % i_sobol) 
 CS.CSbox_alpt(cosmo, outdir, seed=0, dgrowth_short=5., 
               Nmesh_ic=512, Nsample_ic=256, 
-              make_ics=True, 
               subgrid=True,
               return_pos=False, 
               silent=silent)
