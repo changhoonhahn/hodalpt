@@ -526,7 +526,7 @@ def _write_2lptic_param(Omega_m, Omega_b, h, ns, s8, seed, Lbox=1000.,
     Nmesh            %i      
     Nsample          %i       
     Box              %f
-    FileBase         ics         
+    FileBase         ics        
     OutputDir        %s          
     GlassFile        %s
     GlassTileFac     %i         
