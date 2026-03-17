@@ -17,9 +17,9 @@ outdir = os.path.join(dir_lhc, str(i_lhc), 'alpt')
 
 print('ALPT running for LHC%i' % i_lhc) 
 if not os.path.isfile(os.path.join(outdir, 'Quijote_ICs_delta_z127_n256_CIC.DAT')): 
-    CS.CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., make_ics=True,
+    CS.CSbox_alpt_Q(ic_path, outdir, seed=0, dgrowth_short=5., make_ics=True,
             subgrid=True, return_pos=False, silent=silent)
 else: 
     # run subgrid on 
-    CS.CSbox_alpt(ic_path, outdir, seed=0, dgrowth_short=5., make_ics=False,
+    CS.CSbox_alpt_Q(ic_path, outdir, seed=0, dgrowth_short=5., make_ics=False,
             subgrid=True, return_pos=False, silent=silent)
