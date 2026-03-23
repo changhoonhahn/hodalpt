@@ -10,7 +10,7 @@ author(s):
 '''
 import numpy as np 
 import subprocess
-import os, sys, glob 
+import os, sys, glob, shutil
 
 import camb
 
@@ -112,6 +112,9 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     betarsd = theta_rsd['betarsd']
     gamma   = theta_rsd['gamma'] 
     
+    ic_paramfile = '2LPT.param'
+    omega_m, omega_b, w0, n_s, wa, sigma8, hh = _read_cosmo_pars_from_config(dm_dir, ic_paramfile)
+
     lcell = Lbox/Ngrid
     
     if not silent: print('Reading input ...')
@@ -286,6 +289,8 @@ def CSbox_alpt_Q(ic_path, outdir, seed=0, dgrowth_short=5., ngrid=256,
 
     # Set cosmological parameters for this run from Quijote IC  
     omega_m, omega_b, w0, n_s, wa, sigma8, hh = _read_cosmo_pars_from_config(ic_path, ic_paramfile)
+    # copy 2LPT.param into outdir for posterity
+    shutil.copy(os.path.join(ic_path, ic_paramfile), outdir)
 
     # Write input redshift snapshots file
     _write_z_input_file(zsnap, outdir)
