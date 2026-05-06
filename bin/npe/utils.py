@@ -4,20 +4,41 @@ import numpy as np
 import torch
 import h5py
 
-def training_data(kmax, infn, sumstat):
+
+def signed_log(x, floor=1e-10):
+    return np.sign(x) * np.log(np.abs(x) + floor)
+
+def training_data(kmax, infn, sumstat, kmin=0.01):
     with h5py.File(infn, 'r') as f:
         k     = f['k'][:]
         p0    = f['p0'][:]
         p2    = f['p2'][:]
         theta = f['theta'][:]
-        mask  = k <= kmax
+        mask  = (k <= kmax) & (k >= kmin)
         if sumstat == 'p0':
-            x = p0[:,mask]
+            x = np.log(np.clip(p0[:,mask], 1e-10, None))
         elif sumstat == 'p2':
-            x = p2[:,mask]
+            x = signed_log(p2[:,mask])
         elif sumstat == 'pk_all':
-            x = np.concatenate([p0[:,mask], p2[:,mask]], axis=1)
+            x = np.concatenate([
+                np.log(np.clip(p0[:,mask], 1e-10, None)),
+                signed_log(p2[:,mask])
+            ], axis=1)
     return theta, x
+# def training_data(kmax, infn, sumstat):
+#     with h5py.File(infn, 'r') as f:
+#         k     = f['k'][:]
+#         p0    = f['p0'][:]
+#         p2    = f['p2'][:]
+#         theta = f['theta'][:]
+#         mask  = k <= kmax
+#         if sumstat == 'p0':
+#             x = p0[:,mask]
+#         elif sumstat == 'p2':
+#             x = p2[:,mask]
+#         elif sumstat == 'pk_all':
+#             x = np.concatenate([p0[:,mask], p2[:,mask]], axis=1)
+#     return theta, x
 
 def train_val_split(theta, x, seed, n_test=100, save_path=None):
     rng = np.random.default_rng(seed)
