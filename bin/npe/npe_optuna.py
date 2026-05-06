@@ -3,7 +3,7 @@ import numpy as np
 import h5py
 import torch
 from torch import nn
-from torch.utils.tensorboard.writer import SummaryWriter
+# from torch.utils.tensorboard.writer import SummaryWriter
 import optuna
 # from utils.py (in hodalpt/bin/npe)
 from utils import training_data, train_val_split, get_prior, get_prior_bounds
@@ -14,15 +14,17 @@ from sbi import inference as Inference
 import matplotlib.pyplot as plt
 
 # change for TACC
-output_dir = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/npe' # local
-# output_dir = '/corral/utexas/AST25023/simbig/npe'
-infn = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/sense/alpt_dataset.hdf5'
-#infn = '/work/11053/mcasas/ls6/hodalpt/bin/sense/alpt_dataset.hdf5'
+#output_dir = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/npe' # local
+#output_dir = '/corral/utexas/AST25023/simbig/npe'
+output_dir = '/work/11053/mcasas/ls6/hodalpt/bin/npe' # for now, writing to work
+#infn = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/sense/alpt_dataset.hdf5'
+infn = '/work/11053/mcasas/ls6/hodalpt/bin/sense/alpt_dataset.hdf5'
 
 sumstat     = sys.argv[1]
 kmax        = float(sys.argv[2]) 
 nf_model    = 'maf'
 cosmo_only  = False
+n_trials    = int(sys.argv[3])
 
 ##################################################################################
 cuda = torch.cuda.is_available()
@@ -51,6 +53,7 @@ theta, x = training_data(kmax, infn, sumstat)
 
 test_data_path = os.path.join(output_dir, test_name)
 x_train, y_train = train_val_split(theta, x, seed, n_test=100, save_path=test_data_path)
+#x_train = torch.log(x_train)
 print('reserving 100 sims for testing at '+str(test_data_path))
 ##################################################################################
 # set prior 
@@ -61,7 +64,6 @@ prior = get_prior()
 # OPTUNA
 ##################################################################################
 # Optuna Parameters
-n_trials    = 100
 
 cosmo_only = False
 study_name = 'qphi.exp1.%s.%s.%s.%s' % (
@@ -108,9 +110,9 @@ def Objective(trial):
 
     anpe = Inference.SNPE(prior=prior,
             density_estimator=neural_posterior,
-            device=device, 
-            summary_writer=SummaryWriter('%s/%s/%s.%i' % 
-                (output_dir, study_name, study_name, trial.number)))
+            device=device)#, 
+            #summary_writer=SummaryWriter('%s/%s/%s.%i' % 
+               # (output_dir, study_name, study_name, trial.number)))
 
     anpe.append_simulations(y_train.to(device), x_train.to(device))
 
@@ -129,10 +131,10 @@ def Objective(trial):
         
     best_validation_loss = anpe._summary['best_validation_loss'][0]
 
-    anpe._summary_writer.add_hparams(
-            {'n_blocks': n_blocks, 'n_transf': n_transf, 'n_hidden': n_hidden, 'lr': lr, 'p_drop': p_drop},
-            {'best_validation_loss': best_validation_loss}
-            )
+    # anpe._summary_writer.add_hparams(
+    #         {'n_blocks': n_blocks, 'n_transf': n_transf, 'n_hidden': n_hidden, 'lr': lr, 'p_drop': p_drop},
+    #         {'best_validation_loss': best_validation_loss}
+    #         )
   
 
     return best_validation_loss
