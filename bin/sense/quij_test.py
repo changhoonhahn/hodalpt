@@ -5,6 +5,7 @@ script for constructing the Quijote Rockstar + HOD galaxy samples for test sets
 
 '''
 import os, sys
+import h5py 
 import numpy as np 
 from hodalpt.sims import quijote as Q
 from nbodykit.lab import ArrayCatalog, FFTPower

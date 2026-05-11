@@ -238,7 +238,7 @@ def _cosmo_lookup(setup, ireal):
         h  = 0.6711
         ns = 0.9624
         s8 = 0.834
-    elif 'latin_hypercube' in setup:  
+    elif 'hypercube' in setup:  
         fcosmo = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'dat',
                 'quijote_lhc_cosmo.txt')
 
