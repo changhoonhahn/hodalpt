@@ -3,7 +3,7 @@ from sbi import utils as Ut
 import numpy as np
 import torch
 import h5py
-
+from scipy.special import erf, erfinv
 
 def signed_log(x, floor=1e-10):
     return np.sign(x) * np.log(np.abs(x) + floor)
@@ -87,8 +87,36 @@ def get_prior_bounds():
 
     lower_bounds = torch.cat([cosmo_lower, alpt_lower])  # (57,)
     upper_bounds = torch.cat([cosmo_upper, alpt_upper])  # (57,)
-    return lower_bounds, upper_bounds
+    bounds = np.stack([lower_bounds.numpy(), upper_bounds.numpy()], axis=1)
+    return bounds #lower_bounds, upper_bounds
 
 def get_prior():
     lower_bounds, upper_bounds = get_prior_bounds()
     return Ut.BoxUniform(low=lower_bounds, high=upper_bounds)
+
+def cdf_transform(x, bounds):
+    """ Transform from a Gaussian (which is x) to a Uniform with bounds as input.
+    """
+    return _gaussian_cdf(x, 0, 1) * (bounds[1] - bounds[0]) + bounds[0]
+
+
+def inv_cdf_transform(x, bounds):
+    """ Transform from a Uniform with bounds (which is x) to a Gaussian
+    """
+    return _inv_gaussian_cdf((x - bounds[0]) / (bounds[1] - bounds[0]), 0, 1)
+
+def _gaussian_cdf(x, mu, sigma):
+    """ CDF of a Gaussian distribution.
+
+    :math:`F(x) = \\frac{1}{2}(1 + erf(\\frac{x - \\mu}{\\sigma}))`
+    """
+    return 0.5 * (1 + erf((x - mu) / (np.sqrt(2) * sigma)))
+
+
+def _inv_gaussian_cdf(x, mu, sigma):
+    """ Inverse CDF of a Gaussian distribution.
+
+    :math:`F^{-1}(x) = \\mu + \\sigma \\sqrt{2} \\text{erfinv}(2 \\times x - 1)`
+
+    """
+    return mu + sigma * np.sqrt(2) * erfinv(2 * x - 1)

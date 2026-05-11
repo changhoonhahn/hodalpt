@@ -6,7 +6,8 @@ from torch import nn
 # from torch.utils.tensorboard.writer import SummaryWriter
 import optuna
 # from utils.py (in hodalpt/bin/npe)
-from utils import training_data, train_val_split, get_prior, get_prior_bounds
+# from scipy.special import erf, erfinv
+from utils import training_data, train_val_split, inv_cdf_transform, get_prior_bounds
 from sbi import utils as Ut
 from sbi.neural_nets import posterior_nn
 from sbi import inference as Inference
@@ -14,17 +15,17 @@ from sbi import inference as Inference
 import matplotlib.pyplot as plt
 
 # change for TACC
-#output_dir = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/npe' # local
+output_dir = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/npe' # local
 #output_dir = '/corral/utexas/AST25023/simbig/npe'
-output_dir = '/work/11053/mcasas/ls6/hodalpt/bin/npe' # for now, writing to work
-#infn = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/sense/alpt_dataset.hdf5'
-infn = '/work/11053/mcasas/ls6/hodalpt/bin/sense/alpt_dataset.hdf5'
+# output_dir = '/work/11053/mcasas/ls6/hodalpt/bin/npe' # for now, writing to work
+infn = '/Users/mcc3842/CosmicSim2025/hodalpt/bin/sense/alpt_dataset.hdf5'
+# infn = '/work/11053/mcasas/ls6/hodalpt/bin/sense/alpt_dataset.hdf5'
 
-sumstat     = sys.argv[1]
-kmax        = float(sys.argv[2]) 
+sumstat     = 'pk_all' # sys.argv[1]
+kmax        = 0.5  # float(sys.argv[2]) 
 nf_model    = 'maf'
-cosmo_only  = False
-n_trials    = int(sys.argv[3])
+cosmo_only  = True
+n_trials    = 100 # int(sys.argv[3])
 
 ##################################################################################
 cuda = torch.cuda.is_available()
@@ -50,22 +51,28 @@ test_name = 'test_data.exp1.%s.%s.%s.npz' % (
     ['full', 'cosmo_only'][cosmo_only]          # full (all 57 params) or cosmo only
 )
 theta, x = training_data(kmax, infn, sumstat)
+bounds = get_prior_bounds()
+theta_t = inv_cdf_transform(theta, bounds.T)
+
+if cosmo_only == True:
+    # theta = theta[::2,:5]
+    # x = x[::2]
+    theta_t = theta_t[:, :5]
 
 test_data_path = os.path.join(output_dir, test_name)
-x_train, y_train = train_val_split(theta, x, seed, n_test=100, save_path=test_data_path)
-#x_train = torch.log(x_train)
+x_train, y_train = train_val_split(theta_t, x, seed, n_test=100, save_path=test_data_path)
+# x_train = torch.log(x_train)
 print('reserving 100 sims for testing at '+str(test_data_path))
 ##################################################################################
 # set prior 
 ##################################################################################
 # om, ob, h, ns, s8, alpha, beta, nmean, rsd
-prior = get_prior()
+# prior = get_prior()
 ##################################################################################
 # OPTUNA
 ##################################################################################
 # Optuna Parameters
 
-cosmo_only = False
 study_name = 'qphi.exp1.%s.%s.%s.%s' % (
     nf_model,                                   # maf
     sumstat,                                    # p0, p2, pk_all
@@ -108,9 +115,11 @@ def Objective(trial):
             use_batch_norm=False
             )
 
-    anpe = Inference.SNPE(prior=prior,
-            density_estimator=neural_posterior,
-            device=device)#, 
+    anpe = Inference.NPE(density_estimator=neural_posterior,
+            device=device)
+    # anpe = Inference.SNPE(prior=prior,
+    #         density_estimator=neural_posterior,
+    #         device=device)#, 
             #summary_writer=SummaryWriter('%s/%s/%s.%i' % 
                # (output_dir, study_name, study_name, trial.number)))
 
