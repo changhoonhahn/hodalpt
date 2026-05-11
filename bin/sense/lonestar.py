@@ -68,8 +68,58 @@ def check_alpt_runs(i_lhc):
     return _has_file 
 
 
+def run_quijote(i0, i1, time=1, queue='development', silent=True):
+    ''' run ALPT for specific LHC realization 
+    '''
+    _dir= '/corral/utexas/AST25023/simbig/quijote/latinhypercube_hr/'
+    scriptdir = os.path.dirname(__file__)
+    
+    hr = int(np.floor(time))
+    mn = int((time * 60) % 60)
+
+    # write slurm file for submitting the job
+    a = '\n'.join([
+        '#!/bin/bash',
+        '#SBATCH -J quij.hod.%i_%i' % (i0, i1),
+        '#SBATCH -o o/quij.hod.%i_%i' % (i0, i1),
+        '#SBATCH -p %s' % queue, 
+        '#SBATCH -N 1',               
+        '#SBATCH -n 1',               
+        '#SBATCH --time=%s:%s:00' % (str(hr).zfill(2), str(mn).zfill(2)),
+        '#SBATCH -A AST25023', 
+        '',
+        "module purge ",
+        "module load intel",  
+        "module load impi", 
+        "module load fftw3/3.3.10",
+        "module load gsl", 
+        "", 
+        "unset PYTHONPATH", 
+        "source ~/.bashrc", 
+        "", 
+        "conda activate simbig",
+        '',
+        ''])
+    
+    for i_lhc in range(i0, i1): 
+        if not check_alpt_runs(i_lhc): 
+            a += "python %s/quij_test.py %i %s\n" % (scriptdir, i_lhc, _dir)) 
+        else: 
+            print('%i already complete' % i_lhc) 
+
+    # create the script.sh file, execute it and remove it
+    f = open(os.path.join(os.environ['WORK'], 'script.slurm'),'w')
+    f.write(a)
+    f.close()
+    os.system('sbatch %s' % os.path.join(os.environ['WORK'], 'script.slurm'))
+    #os.system('rm script.slurm')
+    return None
+
+
 if __name__=="__main__": 
     #for i in range(100): check_alpt_runs(i) 
     #run_alpt_sobol(0, 50, queue='development', time=1)
 
-    run_alpt_sobol(0, 1, queue='development', time=0.5, silent=False)
+    #run_alpt_sobol(0, 1, queue='development', time=0.5, silent=False)
+    run_quijote(0, 1, time=0.5, queue='development', silent=True):
+
