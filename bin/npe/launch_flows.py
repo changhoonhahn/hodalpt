@@ -64,4 +64,4 @@ def run_npe_optuna(sumstat, kmax, queue='gpu-a100', time=24, n_trials=100):
 
 
 if __name__ == '__main__':
-    run_npe_optuna('p0', 0.2, queue='development', time=0.5, n_trials=1)
+    run_npe_optuna('p0', 0.2, queue='normal', time=4, n_trials=100)
