@@ -229,7 +229,7 @@ class Snap(object):
 def _cosmo_lookup(setup, ireal): 
     ''' look up cosmology for quijote realization 
     '''
-    if setup not in ['fiducial', 'latin_hypercube_HR']: 
+    if setup.lower() not in ['fiducial', 'latin_hypercube_hr', 'latinhypercube_hr']: 
         raise NotImplementedError("non-fiducial cosmologies not yet implemented")
 
     if 'fiducial' in setup: 
@@ -238,7 +238,7 @@ def _cosmo_lookup(setup, ireal):
         h  = 0.6711
         ns = 0.9624
         s8 = 0.834
-    elif 'latin_hypercube' in setup:  
+    elif 'hypercube' in setup:  
         fcosmo = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'dat',
                 'quijote_lhc_cosmo.txt')
 

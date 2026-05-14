@@ -118,8 +118,8 @@ if __name__=="__main__":
     #run_alpt_sobol(0, 50, queue='development', time=1)
 
     #run_alpt_sobol(0, 1, queue='development', time=0.5, silent=False)
-    run_quijote(0, 1, time=0.5, queue='development', silent=True)
-    # run_quijote(1, 100, time=1, queue='normal')
-    # run_quijote(100, 200, time=1, queue='normal')
-    # run_quijote(200, 300, time=1, queue='normal')
-    # run_quijote(300, 400, time=1, queue='normal')
+    # run_quijote(0, 1, time=0.5, queue='development', silent=True)
+    run_quijote(1, 100, time=1, queue='normal')
+    run_quijote(100, 200, time=1, queue='normal')
+    run_quijote(200, 300, time=1, queue='normal')
+    run_quijote(300, 400, time=1, queue='normal')

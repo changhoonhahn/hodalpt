@@ -58,7 +58,7 @@ p0     = poles['power_0'].real - poles.attrs['shotnoise']
 p2     = poles['power_2'].real
 nmodes = poles['modes']
 theta_hod = np.array(list(hod.values()))
-theta_c = np.loadtxt(path_quij+'Cosmo_params.dat')
+theta_c = np.loadtxt(path_quij+'/Cosmo_params.dat')
 
 with h5py.File(fname, 'w') as f:
     f['xyz']      = xyz
