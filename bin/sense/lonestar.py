@@ -46,6 +46,7 @@ def run_alpt_sobol(i0, i1, time=1, queue='development', silent=True):
         else: 
             print('%i already complete' % i_lhc) 
 
+
     # create the script.sh file, execute it and remove it
     f = open(os.path.join(os.environ['WORK'], 'script.slurm'),'w')
     f.write(a)
@@ -68,7 +69,7 @@ def check_alpt_runs(i_lhc):
     return _has_file 
 
 
-def run_quijote(i0, i1, time=1, queue='development'):
+def run_quijote(i0, i1, time=1, queue='development', silent=True):
     ''' run ALPT for specific LHC realization 
     '''
     _dir= '/corral/utexas/AST25023/simbig/quijote/latinhypercube_hr/'
@@ -102,8 +103,7 @@ def run_quijote(i0, i1, time=1, queue='development'):
         ''])
     
     for i_lhc in range(i0, i1): 
-        a += "python %s/quij_test.py %i %s\n" % (scriptdir, i_lhc, _dir)
-
+        a += "python %s/quij_test.py %i %s\n" % (scriptdir, i_lhc, _dir) 
     # create the script.sh file, execute it and remove it
     f = open(os.path.join(os.environ['WORK'], 'script.slurm'),'w')
     f.write(a)
@@ -118,6 +118,7 @@ if __name__=="__main__":
     #run_alpt_sobol(0, 50, queue='development', time=1)
 
     #run_alpt_sobol(0, 1, queue='development', time=0.5, silent=False)
+    # run_quijote(0, 1, time=0.5, queue='development', silent=True)
     run_quijote(1, 100, time=1, queue='normal')
     run_quijote(100, 200, time=1, queue='normal')
     run_quijote(200, 300, time=1, queue='normal')
