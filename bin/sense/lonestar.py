@@ -125,11 +125,10 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
     a = '\n'.join([
         '#!/bin/bash',
         '#SBATCH -J bias.fid.%i_%i' % (i0, i1),
-        '#SBATCH -o o/bias.fid.%A_%a.out',
+        '#SBATCH -o o/bias.fid.%i_%i' % (i0, i1),
         '#SBATCH -p %s' % queue,
         '#SBATCH -N 1',
         '#SBATCH -n 1',
-        '#SBATCH --array=%i-%i%%128' % (i0, i1-1),
         '#SBATCH --time=%s:%s:00' % (str(hr).zfill(2), str(mn).zfill(2)),
         '#SBATCH -A AST25023',
         '',
@@ -144,7 +143,7 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
         "",
         "conda activate simbig",
         '',
-        "python %s/bias_fiducial.py $SLURM_ARRAY_TASK_ID" % scriptdir,
+        "python %s/bias_fiducial.py %i %i" % (scriptdir, i0, i1),
         ''])
 
     f = open(os.path.join(os.environ['WORK'], 'script.slurm'), 'w')
@@ -155,9 +154,8 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
 
 
 if __name__=="__main__":
-    # run_bias_fiducial(0, 10000, queue='normal', time=0.25)
-    for i in range(0, 10000, 1000):
-        run_bias_fiducial(i, i+1000, queue='normal', time=0.25)
+    for i in range(1, 10001, 1000):
+        run_bias_fiducial(i, i+1000, queue='normal', time=20)
     #for i in range(100): check_alpt_runs(i) 
     #run_alpt_sobol(0, 50, queue='development', time=1)
 

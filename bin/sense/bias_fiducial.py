@@ -17,7 +17,8 @@ for one fiducial_hr realization:
     compute power spectra
         save k p0k p2k
 '''
-i = int(sys.argv[1])
+i0 = int(sys.argv[1])
+i1 = int(sys.argv[2])
 
 bias_fn = 'NLB_samples_10000.hdf5'
 hod_fn = 'HOD_samples_1000.hdf5'
@@ -68,20 +69,21 @@ with h5py.File(hod_fn, 'r') as f:
 
 
 
-print('computing bias for sample%i' % i)
+for i in range(i0, i1):
+    print('computing bias for sample%i' % i)
 
-fname_NLB = outdir_NLB+'/spec.%i.h5' % i
-theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
-xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
-save_spectrum(fname_NLB, xyz_nlb, nlb_to_vec(theta_gal, theta_rsd))
+    fname_NLB = outdir_NLB+'/spec.%i.h5' % i
+    theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
+    xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
+    save_spectrum(fname_NLB, xyz_nlb, nlb_to_vec(theta_gal, theta_rsd))
 
-if i < n_hod:
-    fname_HOD = outdir_HOD+'/spec.%i.h5' % i
-    hod = read_samps_HOD(hod_fn, i)
-    gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
-    xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
-    save_spectrum(fname_HOD, xyz_hod, hod_to_vec(hod))
-print('bias computed & spectra written for sample%i completed in %.1f min' % (i, (time.time() - t0) / 60.))
+    if i < n_hod:
+        fname_HOD = outdir_HOD+'/spec.%i.h5' % i
+        hod = read_samps_HOD(hod_fn, i)
+        gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
+        xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
+        save_spectrum(fname_HOD, xyz_hod, hod_to_vec(hod))
+    print('sample%i done in %.1f min' % (i, (time.time() - t0) / 60.))
 
     
 
