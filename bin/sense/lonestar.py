@@ -155,7 +155,9 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
 
 
 if __name__=="__main__":
-    run_bias_fiducial(0, 10000, queue='normal', time=0.25)
+    # run_bias_fiducial(0, 10000, queue='normal', time=0.25)
+    for i in range(0, 10000, 1000):
+        run_bias_fiducial(i, i+1000, queue='normal', time=0.25)
     #for i in range(100): check_alpt_runs(i) 
     #run_alpt_sobol(0, 50, queue='development', time=1)
 
