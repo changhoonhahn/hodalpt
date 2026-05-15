@@ -17,15 +17,14 @@ for one fiducial_hr realization:
     compute power spectra
         save k p0k p2k
 '''
-start_idx = int(sys.argv[1])
-stop_idx = int(sys.argv[2])
+i = int(sys.argv[1])
 
 bias_fn = 'NLB_samples_10000.hdf5'
 hod_fn = 'HOD_samples_1000.hdf5'
 
 dm_dir = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0/alpt/'
 outdir = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0/bias'
-path_quij = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0'
+path_quij = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0/'
 outdir_NLB = os.path.join(outdir,'NLB')
 outdir_HOD =  os.path.join(outdir,'HOD')
 os.makedirs(outdir_NLB, exist_ok=True)
@@ -65,23 +64,24 @@ def save_spectrum(fname, xyz, overwrite=True):
 with h5py.File(hod_fn, 'r') as f:
     n_hod = len(f['samples'])
 
-for i in range(start_idx,stop_idx):
 
-    print('computing bias for sample%i' % i)
 
-    fname_NLB = outdir_NLB+'/spec.%i' % i
-    theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
-    xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
-    save_spectrum(fname_NLB, xyz_nlb)
 
-    if i < n_hod:
-        fname_HOD = outdir_HOD+'/spec.%i.h5' % i
-        hod = read_samps_HOD(hod_fn, i)
-        gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
-        xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
-        save_spectrum(fname_HOD, xyz_hod)
-    print('bias computed & spectra written for sample%i completed in %.1f min' % (i, (time.time() - t0) / 60.))
-    
+print('computing bias for sample%i' % i)
+
+fname_NLB = outdir_NLB+'/spec.%i' % i
+theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
+xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
+save_spectrum(fname_NLB, xyz_nlb)
+
+if i < n_hod:
+    fname_HOD = outdir_HOD+'/spec.%i.h5' % i
+    hod = read_samps_HOD(hod_fn, i)
+    gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
+    xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
+    save_spectrum(fname_HOD, xyz_hod)
+print('bias computed & spectra written for sample%i completed in %.1f min' % (i, (time.time() - t0) / 60.))
+
     
 
         

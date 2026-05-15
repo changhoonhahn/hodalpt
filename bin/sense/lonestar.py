@@ -113,7 +113,7 @@ def run_quijote(i0, i1, time=1, queue='development', silent=True):
     return None
 
 
-def run_bias_fiducial(i0, i1, time=1, queue='development'):
+def run_bias_fiducial(i0, i1, time=1, queue='normal'):
     ''' compute galaxy catalogs and power spectra for fiducial_HR realization
         using NLB and HOD samples, for sample indices i0 to i1
     '''
@@ -144,8 +144,8 @@ def run_bias_fiducial(i0, i1, time=1, queue='development'):
         "conda activate simbig",
         '',
         ''])
-
-    a += "python %s/bias_fiducial.py %i %i\n" % (scriptdir, i0, i1)
+    for i in range(i0, i1): 
+        a += "python %s/bias_fiducial.py %i \n" % (scriptdir, i)
 
     f = open(os.path.join(os.environ['WORK'], 'script.slurm'), 'w')
     f.write(a)
