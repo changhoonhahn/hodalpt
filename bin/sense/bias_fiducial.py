@@ -49,8 +49,8 @@ def save_spectrum(fname, xyz, theta, overwrite=True):
         f['theta']    = theta
         f['xyz']      = xyz
         f['k']        = k
-        f['p0k']      = p0
-        f['p2k']      = p2
+        f['p0']       = p0
+        f['p2']       = p2
         f['nmodes']   = nmodes
         f['shotnoise'] = poles.attrs['shotnoise']
         # save useful metadata
