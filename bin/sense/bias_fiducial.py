@@ -1,7 +1,7 @@
 import os, sys
 import numpy as np
 import h5py
-from hodalpt.sims.sampling import read_samps_NLB, read_samps_HOD
+from hodalpt.sims.sampling import read_samps_NLB, read_samps_HOD, nlb_to_vec, hod_to_vec
 # from hodalpt import stats
 from hodalpt.sims import alpt as CS
 from hodalpt.sims import quijote as Q
@@ -30,7 +30,7 @@ outdir_HOD =  os.path.join(outdir,'HOD')
 os.makedirs(outdir_NLB, exist_ok=True)
 os.makedirs(outdir_HOD, exist_ok=True)
 
-def save_spectrum(fname, xyz, overwrite=True):
+def save_spectrum(fname, xyz, theta, overwrite=True):
     """Save FFTPower multipoles to HDF5."""
     if not overwrite and os.path.isfile(fname):
         raise FileExistsError(f"{fname} already exists.")
@@ -46,6 +46,7 @@ def save_spectrum(fname, xyz, overwrite=True):
     nmodes = poles['modes']
     
     with h5py.File(fname, 'w') as f:
+        f['theta']    = theta
         f['xyz']      = xyz
         f['k']        = k
         f['p0k']      = p0
@@ -72,14 +73,14 @@ print('computing bias for sample%i' % i)
 fname_NLB = outdir_NLB+'/spec.%i.h5' % i
 theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
 xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
-save_spectrum(fname_NLB, xyz_nlb)
+save_spectrum(fname_NLB, xyz_nlb, nlb_to_vec(theta_gal, theta_rsd))
 
 if i < n_hod:
     fname_HOD = outdir_HOD+'/spec.%i.h5' % i
     hod = read_samps_HOD(hod_fn, i)
     gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
     xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
-    save_spectrum(fname_HOD, xyz_hod)
+    save_spectrum(fname_HOD, xyz_hod, hod_to_vec(hod))
 print('bias computed & spectra written for sample%i completed in %.1f min' % (i, (time.time() - t0) / 60.))
 
     

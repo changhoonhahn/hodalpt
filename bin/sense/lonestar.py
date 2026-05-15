@@ -116,23 +116,24 @@ def run_quijote(i0, i1, time=1, queue='development', silent=True):
 def run_bias_fiducial(i0, i1, time=1, queue='normal'):
     ''' compute galaxy catalogs and power spectra for fiducial_HR realization
         using NLB and HOD samples, for sample indices i0 to i1
+        submitted as a SLURM array job
     '''
     scriptdir = os.path.dirname(__file__)
-
     hr = int(np.floor(time))
     mn = int((time * 60) % 60)
 
     a = '\n'.join([
         '#!/bin/bash',
         '#SBATCH -J bias.fid.%i_%i' % (i0, i1),
-        '#SBATCH -o o/bias.fid.%i_%i' % (i0, i1),
+        '#SBATCH -o o/bias.fid.%A_%a.out',
         '#SBATCH -p %s' % queue,
         '#SBATCH -N 1',
         '#SBATCH -n 1',
+        '#SBATCH --array=%i-%i%%128' % (i0, i1-1),
         '#SBATCH --time=%s:%s:00' % (str(hr).zfill(2), str(mn).zfill(2)),
         '#SBATCH -A AST25023',
         '',
-        "module purge ",
+        "module purge",
         "module load intel",
         "module load impi",
         "module load fftw3/3.3.10",
@@ -143,9 +144,8 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
         "",
         "conda activate simbig",
         '',
+        "python %s/bias_fiducial.py $SLURM_ARRAY_TASK_ID" % scriptdir,
         ''])
-    for i in range(i0, i1): 
-        a += "python %s/bias_fiducial.py %i \n" % (scriptdir, i)
 
     f = open(os.path.join(os.environ['WORK'], 'script.slurm'), 'w')
     f.write(a)
@@ -155,10 +155,11 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
 
 
 if __name__=="__main__":
+    run_bias_fiducial(0, 10000, queue='normal', time=0.25)
     #for i in range(100): check_alpt_runs(i) 
     #run_alpt_sobol(0, 50, queue='development', time=1)
 
     #run_alpt_sobol(0, 1, queue='development', time=0.5, silent=False)
     # run_quijote(0, 1, time=0.5, queue='development', silent=True)
    
-    run_bias_fiducial(0, 1, queue='development', time=1)
+    # run_bias_fiducial(0, 1, queue='development', time=1)

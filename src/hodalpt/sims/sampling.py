@@ -116,6 +116,28 @@ def generate_and_save_HOD(outfile, n_samples, master_seed=42):
     print(f"Wrote {n_samples} samples → {outfile}")
 
 #############################################################
+# THETA VECTORIZATION  (defines canonical parameter ordering)
+#############################################################
+_HOD_KEYS = ['logMmin', 'sigma_logM', 'logM0', 'logM1', 'alpha',
+             'Abias', 'eta_conc', 'eta_cen', 'eta_sat']
+
+_RSD_KEYS = ['bv', 'bb', 'betarsd', 'gamma']
+
+def hod_to_vec(hod):
+    """Flatten HOD dict to 1-D array in canonical order (_HOD_KEYS)."""
+    return np.array([hod[k] for k in _HOD_KEYS])
+
+def nlb_to_vec(theta_gal, theta_rsd):
+    """Flatten NLB dicts to 1-D array: alpha(16), beta(16), nmean(16), rsd(4)."""
+    return np.concatenate([
+        theta_gal['alpha'].ravel(),
+        theta_gal['beta'].ravel(),
+        theta_gal['nmean'].ravel(),
+        [theta_rsd[k] for k in _RSD_KEYS],
+    ])
+
+
+#############################################################
 # READ-IN
 #############################################################
 def read_samps_NLB(fn, idx):
