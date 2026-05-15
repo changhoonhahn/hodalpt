@@ -24,7 +24,7 @@ hod_fn = 'HOD_samples_1000.hdf5'
 
 dm_dir = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0/alpt/'
 outdir = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0/bias'
-path_quij = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0/'
+path_quij = '/corral/utexas/AST25023/simbig/quijote/fiducial_HR/0'
 outdir_NLB = os.path.join(outdir,'NLB')
 outdir_HOD =  os.path.join(outdir,'HOD')
 os.makedirs(outdir_NLB, exist_ok=True)
@@ -69,7 +69,7 @@ with h5py.File(hod_fn, 'r') as f:
 
 print('computing bias for sample%i' % i)
 
-fname_NLB = outdir_NLB+'/spec.%i' % i
+fname_NLB = outdir_NLB+'/spec.%i.h5' % i
 theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
 xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
 save_spectrum(fname_NLB, xyz_nlb)
