@@ -229,7 +229,7 @@ class Snap(object):
 def _cosmo_lookup(setup, ireal): 
     ''' look up cosmology for quijote realization 
     '''
-    if setup.lower() not in ['fiducial', 'latin_hypercube_hr', 'latinhypercube_hr']: 
+    if setup.lower() not in ['fiducial', 'fiducial_hr', 'latin_hypercube_hr', 'latinhypercube_hr']:
         raise NotImplementedError("non-fiducial cosmologies not yet implemented")
 
     if 'fiducial' in setup: 
