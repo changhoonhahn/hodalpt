@@ -73,16 +73,18 @@ for i in range(i0, i1):
     print('computing bias for sample%i' % i)
 
     fname_NLB = outdir_NLB+'/spec.%i.h5' % i
-    theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
-    xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
-    save_spectrum(fname_NLB, xyz_nlb, nlb_to_vec(theta_gal, theta_rsd))
+    if not os.path.isfile(fname_NLB):
+        theta_gal, theta_rsd = read_samps_NLB(bias_fn, i)
+        xyz_nlb = CS.CSbox_galaxy(theta_gal, theta_rsd, dm_dir, bias_model='nonlocal0', subgrid=True, silent=True)
+        save_spectrum(fname_NLB, xyz_nlb, nlb_to_vec(theta_gal, theta_rsd))
 
     if i < n_hod:
         fname_HOD = outdir_HOD+'/spec.%i.h5' % i
-        hod = read_samps_HOD(hod_fn, i)
-        gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
-        xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
-        save_spectrum(fname_HOD, xyz_hod, hod_to_vec(hod))
+        if not os.path.isfile(fname_HOD):
+            hod = read_samps_HOD(hod_fn, i)
+            gals =  Q.HODgalaxies(hod, path_quij, z=0.5)
+            xyz_hod = Q.Box_RSD(gals, LOS=[0,0,1], Lbox=1000.)
+            save_spectrum(fname_HOD, xyz_hod, hod_to_vec(hod))
     print('sample%i done in %.1f min' % (i, (time.time() - t0) / 60.))
 
     
