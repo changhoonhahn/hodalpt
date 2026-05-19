@@ -7,7 +7,7 @@ import numpy as np
 
 BAD_IDX = [39, 66, 70, 151, 155, 257, 318, 340, 361]
 
-def run_quijote_bad(indices=BAD_IDX, time=1, queue='normal', silent=True):
+def run_quijote_bad(indices=BAD_IDX, time=1, queue='development', silent=True):
     _dir = '/corral/utexas/AST25023/simbig/quijote/latinhypercube_hr/'
     scriptdir = os.path.dirname(os.path.abspath(__file__))
 
