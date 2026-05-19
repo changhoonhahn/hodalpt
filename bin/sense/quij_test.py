@@ -6,11 +6,14 @@ script for constructing the Quijote Rockstar + HOD galaxy samples for test sets
 '''
 import os, sys
 import time
+import warnings
 import h5py
 import numpy as np
 from hodalpt.sims import quijote as Q
 from nbodykit.lab import ArrayCatalog, FFTPower
 import h5py
+
+warnings.filterwarnings('ignore', message='You have selected 18 bins')
 
 i_lhc = int(sys.argv[1]) # LHC index
 _t0 = time.time()

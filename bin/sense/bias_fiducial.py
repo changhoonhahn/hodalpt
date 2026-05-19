@@ -1,4 +1,5 @@
 import os, sys
+import warnings
 import numpy as np
 import h5py
 from hodalpt.sims.sampling import read_samps_NLB, read_samps_HOD, nlb_to_vec, hod_to_vec
@@ -7,6 +8,8 @@ from hodalpt.sims import alpt as CS
 from hodalpt.sims import quijote as Q
 from nbodykit.lab import ArrayCatalog, FFTPower
 import time
+
+warnings.filterwarnings('ignore', message='You have selected 18 bins')
 
 t0 = time.time()
 '''
