@@ -4,6 +4,8 @@ from hodalpt import stats
 import os
 import sys
 import time
+import pyfftw
+pyfftw.config.NUM_THREADS = 1
 # import pyspectrum as pyS
 
 i0 = int(sys.argv[1])
