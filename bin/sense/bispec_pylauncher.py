@@ -205,13 +205,13 @@ if __name__ == '__main__':
         import pylauncher
         cmdfile     = sys.argv[2]
         pyl_workdir = sys.argv[3]
-        pylauncher.ClassicLauncher(cmdfile, workdir=pyl_workdir, debug='job')
+        pylauncher.ClassicLauncher(cmdfile, workdir=pyl_workdir, debug='job', delay=0.01)
 
     elif subcmd == 'resume-run':
         # called from SLURM — resumes from queuestate
         import pylauncher
         queuestate = sys.argv[2]
-        pylauncher.ResumeClassicLauncher(queuestate, debug='job')
+        pylauncher.ResumeClassicLauncher(queuestate, debug='job', delay=0.01)
 
     elif subcmd == 'resume':
         # local submission of a resume SLURM job
