@@ -23,8 +23,10 @@ sobol_fn      = f'{WORK}/hodalpt/bin/sense/cosmology_alpt_sobol2048.dat'
 alpt_prior_fn = f'{WORK}/hodalpt/bin/sense/alpt_nlb_priors_50p.hdf5'
 sobol_base    = '/corral/utexas/AST25023/simbig/alpt/sobol'
 
-out_dir   = f'{WORK}/hodalpt/bin/npe'
-kmax      = 1.0
+out_dir      = f'{WORK}/hodalpt/bin/npe'
+kmax         = 1.0
+kmin_bispec  = 0.0
+k_fund       = 2 * np.pi / 1000.   # fundamental wavenumber for Lbox=1000 Mpc/h
 N_LHC     = 400
 N_SOBOL   = 2048
 N_WORKERS = 16
@@ -35,14 +37,24 @@ N_WORKERS = 16
 # ---------------------------------------------------------------------------
 
 def _load_bias_fid(args):
-    fn, kmax = args
+    fn, kmax, kmin_b = args
     with h5py.File(fn, 'r') as f:
         k     = f['k'][:]
         p0    = f['p0'][:]
         p2    = f['p2'][:]
         theta = f['theta'][:]
         mask  = k <= kmax
-    return k[mask], p0[mask], p2[mask], theta
+        if 'b123' in f:
+            k1 = f['i_k1'][:] * k_fund
+            k2 = f['i_k2'][:] * k_fund
+            k3 = f['i_k3'][:] * k_fund
+            klim = (k1 > kmin_b) & (k2 > kmin_b) & (k3 > kmin_b) & \
+                   (k1 <= kmax)  & (k2 <= kmax)  & (k3 <= kmax)
+            b123 = f['b123'][:][klim]
+            q123 = f['q123'][:][klim]
+        else:
+            b123, q123 = None, None
+    return k[mask], p0[mask], p2[mask], theta, b123, q123
 
 
 def collect_bias_fid(bias_dir, out_fn, label):
@@ -53,7 +65,7 @@ def collect_bias_fid(bias_dir, out_fn, label):
     n = len(available)
     print(f'[{label}] Found {n} spectra in {bias_dir}')
 
-    paths = [(os.path.join(bias_dir, fn), kmax) for fn in available]
+    paths = [(os.path.join(bias_dir, fn), kmax, kmin_bispec) for fn in available]
     results = [None] * n
     t0 = time.time()
 
@@ -71,11 +83,17 @@ def collect_bias_fid(bias_dir, out_fn, label):
     all_p2    = np.array([r[2] for r in results])
     all_theta = np.array([r[3] for r in results])
 
+    n_with_bispec = sum(1 for r in results if r[4] is not None)
+    print(f'[{label}] {n_with_bispec}/{n} samples have bispectrum')
+
     with h5py.File(out_fn, 'w') as f:
         f.create_dataset('theta', data=all_theta)
         f.create_dataset('p0',    data=all_p0)
         f.create_dataset('p2',    data=all_p2)
         f.create_dataset('k',     data=k)
+        if n_with_bispec == n:
+            f.create_dataset('b123', data=np.array([r[4] for r in results]))
+            f.create_dataset('q123', data=np.array([r[5] for r in results]))
 
     print(f'[{label}] Wrote {out_fn}: theta {all_theta.shape}, p0 {all_p0.shape}')
 
