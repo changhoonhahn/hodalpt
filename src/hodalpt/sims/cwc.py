@@ -17,21 +17,16 @@ from numba.typed import List
 @njit(parallel=True, fastmath=True, cache=True)
 def real_to_redshift_space_local_box(delta, tweb, posx, posy, posz, vx, vy, vz,
                                      ngrid, lbox, bv, bb, betarsd, gamma, redshift, omega_m):
-    # Real to redshift space (local)
-
-    H0 = 100.
-    omega_l = 1. - omega_m 
-
-    lcell = lbox/ ngrid
+    ''' impose RSD and convert galaxy positions from real to redshift space
+    '''
+    #H0 = 100.
+    #omega_l = 1. - omega_m 
+    #ascale = 1./(1.+redshift)
+    lcell = lbox / ngrid
 
     posznew = np.zeros(len(posz))
-
-    ascale = 1./(1.+redshift)
-
-    # Parallelize the outer loop                                                                                                                                                                            
     for ii in prange(len(posx)):
-
-        # Initialize positions at the centre of the cell                                                                                                                                                    
+        # Initialize positions at the centre of the cell
         xtmp = posx[ii]
         ytmp = posy[ii]
         ztmp = posz[ii]
@@ -43,27 +38,25 @@ def real_to_redshift_space_local_box(delta, tweb, posx, posy, posz, vx, vy, vz,
         ind3d = indz+ngrid*(indy+ngrid*indx)
 
         # Compute redshift           
-        HH = H0 * np.sqrt(omega_m*(1.+redshift)**3 + omega_l)
+        #HH = H0 * np.sqrt(omega_m*(1.+redshift)**3 + omega_l)
 
+        # FoG
         sigma = bb*(1. + delta[indx,indy,indz])**betarsd
-
+        
         vzrand = np.random.normal(0,sigma)
         vzrand = np.sign(vzrand) * abs(vzrand) ** gamma
-
+    
+        # Kaiser 
         vztmp = trilininterp(xtmp, ytmp, ztmp, vz, lbox, ngrid)
 
         vztmp += vzrand
 
-        # Go from cartesian to sky coordinates
-        ztmp = ztmp + bv * vztmp #/ (ascale * HH) # BOX velocities are already in Mpc/h
+        # apply velocity with linear velocity bias  
+        # BOX velocities are already in Mpc/h so no conversion is necessary 
+        posznew[ii] = ztmp + bv * vztmp 
 
-        # Impose boundary conditions
-        if ztmp<0:
-            ztmp += lbox
-        elif ztmp>lbox:
-            ztmp -= lbox
-
-        posznew[ii] = ztmp
+    # impose boundary conditions 
+    posznew = (posznew + lbox) % lbox
 
     return posx, posy, posznew
 

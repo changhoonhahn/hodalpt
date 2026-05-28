@@ -30,7 +30,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
        from hodalpt.sims import alpt as Alpt
        theta_gal = {'alpha': 1.9230, 'beta': 2.0253, 'dth': -0.7889, 'rhoeps':
                     14.6874, 'eps': 0.5616, 'nmean': 3.3e-4}
-       theta_rsd = {'bv': 0.7289, 'bb': 1.1652, 'betarsd': 1.3136, 'gamma':
+       theta_rsd = {'bv': ___, 'bb': 1.1652, 'betarsd': 1.3136, 'gamma':
                     0.4944}
 
        xyz = Alpt.CSbox_galaxy(theta_gal, theta_rsd, '/Users/hahnchanghoon/data/simbig/quijote/fiducial/0/alpt/', silent=False)
@@ -45,8 +45,8 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
         0.5616, 'nmean': 3.3e-4}`
         
     theta_rsd : dict
-        Dictionary specifying the RSD parameters: bv, bb, betarsd, gamma. For
-        some default values use `theta_rsd = {'bv': 0.7289, 'bb': 1.1652,
+        Dictionary specifying the RSD parameters:  bb, betarsd, gamma. For
+        some default values use `theta_rsd = {'bb': 1.1652,
         'betarsd': 1.3136, 'gamma': 0.4944}`
 
     dm_dir : str
