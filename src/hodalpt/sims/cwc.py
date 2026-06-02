@@ -271,17 +271,6 @@ def negative_binomial(n, p):
     return Y
 
 
-@njit(fastmath=True, cache=True)
-def neg_binomial(n, p):  
-    Y = np.zeros(p)
-    if n > 0:
-        good_p = (p > 0.) & (p < 1.) 
-        if p > 0. and p < 1.:
-            gfunc = np.random.gamma(n, (1. - p[good_p]) / p[good_p])
-            Y[good_p] = np.random.poisson(gfunc)
-    return Y
-
-
 @njit(parallel=False, cache=True, fastmath=True)
 def trilininterp(xx, yy, zz, arrin, lbox, ngrid):
     lcell = lbox/ngrid
