@@ -14,6 +14,203 @@ from numba import njit, prange, int64
 from numba.typed import List
 
 
+@njit(parallel=True, cache=True, fastmath=True)
+def biasmodel_nonlocal2_box(ngrid, lbox, delta, tweb, dweb, nmean_arr,
+                            alpha_arr, beta_arr, rhoeps_arr, eps_arr):
+    # Allocate tracer field (may be replaced with delta if too memory consuming)
+    ncounts = np.zeros((ngrid,ngrid,ngrid))
+    
+    denstot_arr = np.zeros((4,4))
+
+    # FIRST LOOP: deterministic bias
+    # Parallelize the outer loop
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                if indtweb == 3: continue 
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                alpha   = alpha_arr[indtweb, inddweb] 
+                rhoeps  = rhoeps_arr[indtweb, inddweb]
+                eps     = eps_arr[indtweb, inddweb]
+                
+                ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+                denstot_arr[indtweb,inddweb] += ncounts[ii,jj,kk]
+    
+    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
+    denstot_arr /= lbox**3
+
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                if indtweb == 3: continue 
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                denstot = denstot_arr[indtweb,inddweb]
+                nmean   = nmean_arr[indtweb,inddweb]
+                beta    = beta_arr[indtweb, inddweb]
+
+                ncounts[ii,jj,kk] = nmean / denstot * ncounts[ii,jj,kk]
+                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
+    return ncounts
+
+
+@njit(parallel=True, cache=True, fastmath=True)
+def biasmodel_nonlocal_flex_box(ngrid, lbox, delta, tweb, dweb, nmean_arr,
+                                alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr):
+    ''' more flexible version of biasmodel_nonlocal_box function with
+    rhoeps_arr and eps_arr. 
+
+    see https://arxiv.org/pdf/2403.19337 for details 
+
+    https://github.com/francescosinigaglia/CosmicSignal4SimBIG/blob/622cbebf48d863c77f11c556734212dadbf7108a/boxes/make_galaxy_catalog.py#L822
+    minus redshift dependence
+    '''
+    lcell = lbox/ ngrid
+
+    # Allocate tracer field (may be replaced with delta if too memory consuming)
+    ncounts = np.zeros((ngrid,ngrid,ngrid))
+    
+    denstot_arr = np.zeros((4,4))
+
+    # FIRST LOOP: deterministic bias
+    # Parallelize the outer loop
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                alpha   = alpha_arr[indtweb, inddweb] 
+                dth     = dth_arr[indtweb, inddweb] # could potentially remove 
+                rhoeps  = rhoeps_arr[indtweb, inddweb]
+                eps     = eps_arr[indtweb, inddweb]
+                
+                if delta[ii,jj,kk] < dth:
+                    ncounts[ii,jj,kk] = 0.
+                else:
+                    ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+                denstot_arr[indtweb,inddweb] += ncounts[ii,jj,kk]
+    
+    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
+    denstot_arr /= lbox**3
+
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                denstot = denstot_arr[indtweb,inddweb]
+                nmean   = nmean_arr[indtweb,inddweb]
+                beta    = beta_arr[indtweb, inddweb]
+
+                ncounts[ii,jj,kk] = nmean / denstot * ncounts[ii,jj,kk]
+                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
+    return ncounts
+
+
+@njit(parallel=True, cache=True, fastmath=True)
+def biasmodel_nonlocal_box(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr):#, dth_arr, rhoeps_arr, eps_arr):
+    ''' compute bias model with non-local terms. more documentation to come. 
+
+
+    see https://arxiv.org/pdf/2403.19337 for details 
+
+    https://github.com/francescosinigaglia/CosmicSignal4SimBIG/blob/622cbebf48d863c77f11c556734212dadbf7108a/boxes/make_galaxy_catalog.py#L822
+    minus redshift dependence
+    '''
+    lcell = lbox/ ngrid
+
+    # Allocate tracer field (may be replaced with delta if too memory consuming)
+    ncounts = np.zeros((ngrid,ngrid,ngrid))
+    
+    denstot_arr = np.zeros((4,4))
+
+    # FIRST LOOP: deterministic bias
+    # Parallelize the outer loop
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                alpha   = alpha_arr[indtweb, inddweb] 
+                #dth     = dth_arr[indtweb, inddweb] # could potentially remove 
+                #rhoeps  = rhoeps_arr[indtweb, inddweb]
+                #eps     = eps_arr[indtweb, inddweb]
+                
+                #if delta[ii,jj,kk] < dth:
+                #    ncounts[ii,jj,kk] = 0.
+                #else:
+                ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha# * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
+                denstot_arr[indtweb,inddweb] += ncounts[ii,jj,kk]
+    
+    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
+    denstot_arr /= lbox**3
+
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                indtweb = int(tweb[ii,jj,kk])-1
+                inddweb = int(dweb[ii,jj,kk])-1
+
+                denstot = denstot_arr[indtweb,inddweb]
+                nmean   = nmean_arr[indtweb,inddweb]
+                beta    = beta_arr[indtweb, inddweb]
+
+                ncounts[ii,jj,kk] = nmean / denstot * ncounts[ii,jj,kk]
+                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+
+
+    return ncounts
+
+
+@njit(parallel=True, cache=True, fastmath=True)
+def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime):
+    # Compute bias model
+    lcell = lbox/ ngrid
+
+    # Allocate tracer field (may be replaced with delta if too memory consuming)
+    ncounts = np.zeros((ngrid,ngrid,ngrid))
+
+    # FIRST LOOP: deterministic bias
+    # Parallelize the outer loop
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+                # Sample number counts
+                if delta[ii,jj,kk]<dth:
+                    ncounts[ii,jj,kk] = 0.
+                else:
+                    ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps) * np.exp(-((1 + delta[ii,jj,kk])/rhoepsprime)**epsprime)
+
+
+    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
+    denstot = np.sum(ncounts) / lbox**3
+    
+    for ii in prange(ngrid):
+        for jj in range(ngrid):
+            for kk in range(ngrid):
+
+                ncounts[ii,jj,kk] = nmean / denstot *  ncounts[ii,jj,kk]
+                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
+
+                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
+    
+    return ncounts
+
+
 @njit(parallel=True, fastmath=True, cache=True)
 def real_to_redshift_space_local_box(delta, tweb, posx, posy, posz, vx, vy, vz,
                                      ngrid, lbox, bv, bb, betarsd, gamma, redshift, omega_m):
@@ -71,6 +268,17 @@ def negative_binomial(n, p):
     else:
         Y = 0
 
+    return Y
+
+
+@njit(fastmath=True, cache=True)
+def neg_binomial(n, p):  
+    Y = np.zeros(p)
+    if n > 0:
+        good_p = (p > 0.) & (p < 1.) 
+        if p > 0. and p < 1.:
+            gfunc = np.random.gamma(n, (1. - p[good_p]) / p[good_p])
+            Y[good_p] = np.random.poisson(gfunc)
     return Y
 
 
@@ -141,99 +349,6 @@ def trilininterp(xx, yy, zz, arrin, lbox, ngrid):
     return out
 
 
-@njit(parallel=True, cache=True, fastmath=True)
-def biasmodel_local_box(ngrid, lbox, delta, nmean, alpha, beta, dth, rhoeps, eps, rhoepsprime, epsprime):
-    # Compute bias model
-    lcell = lbox/ ngrid
-
-    # Allocate tracer field (may be replaced with delta if too memory consuming)
-    ncounts = np.zeros((ngrid,ngrid,ngrid))
-
-    # FIRST LOOP: deterministic bias
-    # Parallelize the outer loop
-    for ii in prange(ngrid):
-        for jj in range(ngrid):
-            for kk in range(ngrid):
-                # Sample number counts
-                if delta[ii,jj,kk]<dth:
-                    ncounts[ii,jj,kk] = 0.
-                else:
-                    ncounts[ii,jj,kk] = (1.+delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps) * np.exp(-((1 + delta[ii,jj,kk])/rhoepsprime)**epsprime)
-
-
-    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
-    denstot = np.sum(ncounts) / lbox**3
-    
-    for ii in prange(ngrid):
-        for jj in range(ngrid):
-            for kk in range(ngrid):
-
-                ncounts[ii,jj,kk] = nmean / denstot *  ncounts[ii,jj,kk]
-                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
-
-                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
-    
-    return ncounts
-
-
-@njit(parallel=True, cache=True, fastmath=True)
-def biasmodel_nonlocal_box(ngrid, lbox, delta, tweb, dweb, nmean_arr, alpha_arr, beta_arr):#, dth_arr, rhoeps_arr, eps_arr):
-    ''' compute bias model with non-local terms. more documentation to come. 
-
-
-    see https://arxiv.org/pdf/2403.19337 for details 
-
-    https://github.com/francescosinigaglia/CosmicSignal4SimBIG/blob/622cbebf48d863c77f11c556734212dadbf7108a/boxes/make_galaxy_catalog.py#L822
-    minus redshift dependence
-    '''
-    lcell = lbox/ ngrid
-
-    # Allocate tracer field (may be replaced with delta if too memory consuming)
-    ncounts = np.zeros((ngrid,ngrid,ngrid))
-    
-    denstot_arr = np.zeros((4,4))
-
-    # FIRST LOOP: deterministic bias
-    # Parallelize the outer loop
-    for ii in prange(ngrid):
-        for jj in range(ngrid):
-            for kk in range(ngrid):
-                indtweb = int(tweb[ii,jj,kk])-1
-                inddweb = int(dweb[ii,jj,kk])-1
-
-                alpha   = alpha_arr[indtweb, inddweb] 
-                #dth     = dth_arr[indtweb, inddweb] # could potentially remove 
-                #rhoeps  = rhoeps_arr[indtweb, inddweb]
-                #eps     = eps_arr[indtweb, inddweb]
-                
-                #if delta[ii,jj,kk] < dth:
-                #    ncounts[ii,jj,kk] = 0.
-                #else:
-                ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha# * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
-                denstot_arr[indtweb,inddweb] += ncounts[ii,jj,kk]
-    
-    # SECOND LOOP: stochastic bias - we need to compute the right normalization beforehand
-    denstot_arr /= lbox**3
-
-    for ii in prange(ngrid):
-        for jj in range(ngrid):
-            for kk in range(ngrid):
-                indtweb = int(tweb[ii,jj,kk])-1
-                inddweb = int(dweb[ii,jj,kk])-1
-
-                denstot = denstot_arr[indtweb,inddweb]
-                nmean   = nmean_arr[indtweb,inddweb]
-                beta    = beta_arr[indtweb, inddweb]
-
-                ncounts[ii,jj,kk] = nmean / denstot * ncounts[ii,jj,kk]
-                pnegbin = 1 - ncounts[ii,jj,kk]/(ncounts[ii,jj,kk] + beta)
-
-                ncounts[ii,jj,kk] = negative_binomial(beta, pnegbin)
-
-
-    return ncounts
-
-
 @njit(parallel=False, cache=True, fastmath=True)
 def prepare_indices_array(posx, posy, posz, ngrid, lbox):
 
@@ -299,15 +414,14 @@ def sample_galaxies(lbox, ngrid, posxprep, posyprep, poszprep, ncounts):
 
     indtmp = 0
 
-    print('-->Find starting indices ...')
+    #print('-->Find starting indices ...')
     for ii in range(ngrid):
         for jj in range(ngrid):
             for kk in range(ngrid):
                 indstart_arr[ii,jj,kk] = indtmp
                 indtmp += ncounts[ii,jj,kk]
 
-    print('-->Start loop over cells of the mesh ...')
-    
+    #print('-->Start loop over cells of the mesh ...')
     # Now loop over the cells of the mesh to perform HOD
     for ii in prange(ngrid):
         for jj in range(ngrid):
