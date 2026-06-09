@@ -54,7 +54,7 @@ def _load_bias_fid(args):
             q123 = f['q123'][:][klim]
         else:
             b123, q123 = None, None
-    return k[mask], p0[mask], p2[mask], theta, b123, q123
+    return k[mask], p0[mask], p2[mask], theta, b123, q123, klim
 
 
 def collect_bias_fid(bias_dir, out_fn, label):
@@ -94,6 +94,7 @@ def collect_bias_fid(bias_dir, out_fn, label):
         if n_with_bispec == n:
             f.create_dataset('b123', data=np.array([r[4] for r in results]))
             f.create_dataset('q123', data=np.array([r[5] for r in results]))
+            f.create_dataset('klim', data=np.array([r[6] for r in results]))
 
     print(f'[{label}] Wrote {out_fn}: theta {all_theta.shape}, p0 {all_p0.shape}')
 
