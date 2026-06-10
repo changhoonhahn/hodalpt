@@ -153,9 +153,52 @@ def run_bias_fiducial(i0, i1, time=1, queue='normal'):
     return None
 
 
+def run_bispec_fiducial(i0, i1, time=1, queue='normal'):
+    ''' compute bispectrum for fiducial_HR NLB and HOD samples,
+        submitting one SLURM job per batch of 1000
+    '''
+    scriptdir = os.path.dirname(__file__)
+    hr = int(np.floor(time))
+    mn = int((time * 60) % 60)
+
+    for batch_start in range(i0, i1, 1000):
+        batch_end = min(batch_start + 1000, i1)
+
+        a = '\n'.join([
+            '#!/bin/bash',
+            '#SBATCH -J bispec.fid.%i_%i' % (batch_start, batch_end),
+            '#SBATCH -o o/bispec.fid.%i_%i' % (batch_start, batch_end),
+            '#SBATCH -p %s' % queue,
+            '#SBATCH -N 1',
+            '#SBATCH -n 1',
+            '#SBATCH --time=%s:%s:00' % (str(hr).zfill(2), str(mn).zfill(2)),
+            '#SBATCH -A AST25022',
+            '',
+            "module purge",
+            "module load intel",
+            "module load impi",
+            "module load fftw3/3.3.10",
+            "module load gsl",
+            "",
+            "unset PYTHONPATH",
+            "source ~/.bashrc",
+            "",
+            "conda activate simbig",
+            '',
+            "python %s/bispec_fid.py %i %i" % (scriptdir, batch_start, batch_end),
+            ''])
+
+        f = open(os.path.join(os.environ['WORK'], 'script.slurm'), 'w')
+        f.write(a)
+        f.close()
+        os.system('sbatch %s' % os.path.join(os.environ['WORK'], 'script.slurm'))
+    return None
+
+
 if __name__=="__main__":
-    for i in range(1, 10001, 1000):
-        run_bias_fiducial(i, i+1000, queue='normal', time=20)
+    #for i in range(1000, 10000, 1000):
+      # run_bias_fiducial(i, i+1000, queue='normal', time=20)
+    # run_bias_fiducial(0, 1000, queue='normal', time=20)
     #for i in range(100): check_alpt_runs(i) 
     #run_alpt_sobol(0, 50, queue='development', time=1)
 
@@ -163,3 +206,4 @@ if __name__=="__main__":
     # run_quijote(0, 1, time=0.5, queue='development', silent=True)
    
     # run_bias_fiducial(0, 1, queue='development', time=1)
+    run_bispec_fiducial(0, 1, queue='development', time=1)
