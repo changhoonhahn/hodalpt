@@ -5,13 +5,18 @@ script for constructing the Quijote Rockstar + HOD galaxy samples for test sets
 
 '''
 import os, sys
-import h5py 
-import numpy as np 
+import time
+import warnings
+import h5py
+import numpy as np
 from hodalpt.sims import quijote as Q
 from nbodykit.lab import ArrayCatalog, FFTPower
 import h5py
 
-i_lhc = int(sys.argv[1]) # LHC index 
+warnings.filterwarnings('ignore', message='You have selected 18 bins')
+
+i_lhc = int(sys.argv[1]) # LHC index
+_t0 = time.time()
 
 np.random.seed(i_lhc) 
 
@@ -26,14 +31,14 @@ def sample_HOD():
     # hod_upper_bound = np.array([14.0, 0.6, 15.0, 15.0, 1.5])    
     hod = {
         'logMmin': np.random.normal(12.97, 0.11, size=1)[0],
-        'sigma_logM': np.random.normal(0.40, 0.1, size=1)[0],
+        'sigma_logM': max(np.random.normal(0.40, 0.1, size=1)[0], 1e-3),
         'logM0': np.random.normal(13.67, 0.3, size=1)[0],
         'logM1': np.random.normal(13.68, 0.31, size=1)[0],
         'alpha': np.random.normal(0.79, 0.26, size=1)[0],
         'Abias': np.random.normal(0.01, 0.16, size=1)[0],
-        'eta_conc': np.random.normal(1.11,0.40, size=1)[0],
-        'eta_cen': np.random.normal(0.31, 0.13, size=1)[0],
-        'eta_sat': np.random.normal(0.85, 0.27, size=1)[0] 
+        'eta_conc': max(np.random.normal(1.11,0.40, size=1)[0], 1e-3),
+        'eta_cen': max(np.random.normal(0.31, 0.13, size=1)[0], 1e-3),
+        'eta_sat': max(np.random.normal(0.85, 0.27, size=1)[0], 1e-3)
         }
     return hod
 
@@ -76,3 +81,4 @@ with h5py.File(fname, 'w') as f:
     f.attrs['Nmesh']   = 256
     f.attrs['kmin']    = 0.008
     f.attrs['dk']      = 0.005
+print(f'Wrote sample {i_lhc} to {fname}. ({time.time() - _t0:.1f}s)')

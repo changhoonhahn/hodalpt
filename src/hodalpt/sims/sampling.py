@@ -6,7 +6,7 @@ _DAT_DIR = Path(__file__).parent / 'dat'
 ############################################################################################
 # REPRODUCIBLE SAMPLING F'Ns
 ############################################################################################
-def sample_NLB(seed, width=0.5):
+def sample_NLB(seed, width=10):
     # function to write pm 50 percent ALPT nlb priors centered on quijote fiducial best fit.
     # alpha, beta, nmean are arrays of cenral best fit values (16,), width is desired prior width (percentile)
     # returns dictionaries for alpha, beta, nmean 
@@ -21,7 +21,7 @@ def sample_NLB(seed, width=0.5):
     'bb': 1.1652,
     'betarsd': 1.3136, 
     'gamma': 0.4944}
-
+     
     rng = np.random.default_rng(seed)
     sample_alpha = np.zeros_like(alpha_arr)
     sample_beta = np.zeros_like(beta_arr)
@@ -37,20 +37,27 @@ def sample_NLB(seed, width=0.5):
         blow = beta - beta*width
         bhigh = beta + beta*width
 
-        nlow = nmean - nmean*width
-        nhigh = nmean + nmean*width
+        nlow = nmean - nmean*(width**2)
+        nhigh = nmean + nmean*(width**2)
 
         sample_alpha[i] = rng.uniform(alow, ahigh)
         sample_beta[i] = rng.uniform(blow, bhigh)
         sample_nmean[i] = rng.uniform(nlow, nhigh)
     # sample rsd params
     dict_rsd = {}
+    width_rsd = 0.5
     for key, val in theta_rsd.items():
-        val_low = val - val*width
-        val_high = val + val*width
+        val_low = val - val*width_rsd
+        val_high = val + val*width_rsd
         dict_rsd[key] = rng.uniform(val_low, val_high)
 
-    return sample_alpha, sample_beta, sample_nmean, dict_rsd
+    # set tweb=voids to be zero
+    sn = np.copy(sample_nmean.reshape((4,4)))
+    sn[3,:] = 0.0 
+
+
+
+    return sample_alpha, sample_beta, sn.flatten(), dict_rsd
 
 def index_to_seed(i, master_seed=42):
     """Map sample index → unique deterministic seed, independent of n_samples."""
@@ -89,10 +96,10 @@ def sample_HOD(seed):
         'logM0': rng.normal(13.67, 0.3),
         'logM1': rng.normal(13.68, 0.31),
         'alpha': max(rng.normal(0.79, 0.26), 1e-3),
-        'Abias': rng.normal(0.01, 0.16),
-        'eta_conc': rng.normal(1.11,0.40),
-        'eta_cen':rng.normal(0.31, 0.13),
-        'eta_sat': rng.normal(0.85, 0.27) 
+        'Abias': rng.normal(0.01, 0.16), 
+        'eta_conc': max(rng.normal(1.11,0.40),1e-3),
+        'eta_cen':max(rng.normal(0.31, 0.13),1e-3),
+        'eta_sat': max(rng.normal(0.85, 0.27),1e-3)
         }
     return hod
 def generate_and_save_HOD(outfile, n_samples, master_seed=42):  
