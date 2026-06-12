@@ -21,7 +21,8 @@ from . import quijote as Q
 
 def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
                  zsnap=0.5, lambdath_tweb=0.0, lambdath_twebdelta=0.0,
-                 bias_model='local', subgrid=False, seed=123456, silent=True): 
+                 bias_model='local', subgrid=False, seed=123456, rsd=True, 
+                 silent=True): 
     ''' construct CosmicSignal galaxy mock given DM box. Applies the bias model
     in hodalpt.sims.cwc to specified ALPT DM output 
 
@@ -61,7 +62,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     xyz : array 
         Ngal x 3 array specifying the x, y, z position of galaxies.
     '''
-    if bias_model not in ['local', 'nonlocal0']: 
+    if bias_model not in ['local', 'nonlocal0', 'nonlocal1']: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
 
     np.random.seed(seed)
@@ -105,12 +106,11 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
         eps     = theta_gal['eps']     
         rhoepsprime = theta_gal['rhoepsprime'] 
         epsprime    = theta_gal['epsprime']
+    if bias_model == 'nonlocal1':
+        dth     = theta_gal['dth'] 
+        rhoeps  = theta_gal['rhoeps']
+        eps     = theta_gal['eps']     
 
-    # parse rsd parameters
-    bv      = theta_rsd['bv'] 
-    bb      = theta_rsd['bb']
-    betarsd = theta_rsd['betarsd']
-    gamma   = theta_rsd['gamma'] 
     
     ic_paramfile = '2LPT.param'
     omega_m, omega_b, w0, n_s, wa, sigma8, hh = _read_cosmo_pars_from_config(dm_dir, ic_paramfile)
@@ -157,6 +157,9 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     elif bias_model == 'nonlocal0': 
         ncounts = C.biasmodel_nonlocal_box(Ngrid, Lbox, delta, tweb, twebdelta, 
                                   nmean, alpha, beta)#, dth, rhoeps, eps)
+    elif bias_model == 'nonlocal1': 
+        ncounts = C.biasmodel_nonlocal_flex_box(Ngrid, Lbox, delta, tweb, twebdelta, 
+                                  nmean, alpha, beta, dth, rhoeps, eps)
     else: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
@@ -170,13 +173,20 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     if not silent: print('Sampling galaxy positions ...')
     posx, posy, posz = C.sample_galaxies(Lbox, Ngrid, posxarr_prep, posyarr_prep, poszarr_prep, ncounts)
 
+    
+    if rsd: 
+        # parse rsd parameters
+        bv      = theta_rsd['bv'] 
+        bb      = theta_rsd['bb']
+        betarsd = theta_rsd['betarsd']
+        gamma   = theta_rsd['gamma'] 
 
-    if not silent: print('apply RSD ...')
-    posx, posy, posz = C.real_to_redshift_space_local_box(delta, tweb, posx,
-                                                          posy, posz, vx, vy,
-                                                          vz, Ngrid, Lbox,
-                                                          bv, bb, betarsd, gamma,
-                                                          zsnap, omega_m) 
+        if not silent: print('apply RSD ...')
+        posx, posy, posz = C.real_to_redshift_space_local_box(delta, tweb, posx,
+                                                              posy, posz, vx, vy,
+                                                              vz, Ngrid, Lbox,
+                                                              bv, bb, betarsd, gamma,
+                                                              zsnap, omega_m) 
     
     return np.vstack([posx, posy, posz]).T
 
