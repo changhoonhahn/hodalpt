@@ -62,7 +62,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     xyz : array 
         Ngal x 3 array specifying the x, y, z position of galaxies.
     '''
-    if bias_model not in ['local', 'nonlocal0', 'nonlocal1']: 
+    if bias_model not in ['local', 'nonlocal0', 'nonlocal1', 'nonlocal2']: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
 
     np.random.seed(seed)
@@ -106,7 +106,7 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
         eps     = theta_gal['eps']     
         rhoepsprime = theta_gal['rhoepsprime'] 
         epsprime    = theta_gal['epsprime']
-    if bias_model == 'nonlocal1':
+    elif bias_model in ['nonlocal1', 'nonlocal2']:
         dth     = theta_gal['dth'] 
         rhoeps  = theta_gal['rhoeps']
         eps     = theta_gal['eps']     
@@ -160,10 +160,14 @@ def CSbox_galaxy(theta_gal, theta_rsd, dm_dir, Ngrid=256, Lbox=1000.,
     elif bias_model == 'nonlocal1': 
         ncounts = C.biasmodel_nonlocal_flex_box(Ngrid, Lbox, delta, tweb, twebdelta, 
                                   nmean, alpha, beta, dth, rhoeps, eps)
+    elif bias_model == 'nonlocal2': 
+        ncounts = C.biasmodel_nonlocal2_box(Ngrid, Lbox, delta, tweb, twebdelta, 
+                                  nmean, alpha, beta, dth, rhoeps, eps)
     else: 
         raise NotImplementedError('%s bias model not implemented yet' % bias_model) 
     ncountstot = np.sum(ncounts) # total number of objects
     if not silent: print('Number counts diagnostics (min, max, mean): ', np.amin(ncounts), np.amax(ncounts), np.mean(ncounts))
+    if not silent: print('Numer counts total', np.sum(ncounts))
 
     ncounts = np.reshape(ncounts, (Ngrid, Ngrid, Ngrid))
 
