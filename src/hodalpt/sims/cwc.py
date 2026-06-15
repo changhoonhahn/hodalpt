@@ -16,7 +16,7 @@ from numba.typed import List
 
 @njit(parallel=True, cache=True, fastmath=True)
 def biasmodel_nonlocal2_box(ngrid, lbox, delta, tweb, dweb, nmean_arr, 
-                            alpha_arr, beta_arr, dth_arr, rhoeps_arr, eps_arr):
+                            alpha_arr, beta_arr, rhoeps_arr, eps_arr):
     # Allocate tracer field (may be replaced with delta if too memory consuming)
     ncounts = np.zeros((ngrid,ngrid,ngrid))
     
@@ -28,19 +28,15 @@ def biasmodel_nonlocal2_box(ngrid, lbox, delta, tweb, dweb, nmean_arr,
         for jj in range(ngrid):
             for kk in range(ngrid):
                 indtweb = int(tweb[ii,jj,kk])-1
-                if indtweb == 3: continue # ignore all voids
+                if indtweb == 3: continue
                 inddweb = int(dweb[ii,jj,kk])-1
-                if indtweb == 0 and inddweb == 3: continue # ignore (knot, void) 
+                if inddweb == 3: continue # ignore all voids
 
                 alpha   = alpha_arr[indtweb, inddweb] 
-                dth     = dth_arr[indtweb, inddweb]
                 rhoeps  = rhoeps_arr[indtweb, inddweb]
                 eps     = eps_arr[indtweb, inddweb]
                     
-                if delta[ii,jj,kk] >= dth:
-                    ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
-                else:
-                    ncounts[ii,jj,kk] = 0.
+                ncounts[ii,jj,kk] = (1. + delta[ii,jj,kk])**alpha * np.exp(-((1 + delta[ii,jj,kk])/rhoeps)**eps)
 
     # accumulate denstot_arr serially: prange above would race on these shared entries
     for ii in range(ngrid):
@@ -59,7 +55,7 @@ def biasmodel_nonlocal2_box(ngrid, lbox, delta, tweb, dweb, nmean_arr,
                 indtweb = int(tweb[ii,jj,kk])-1
                 if indtweb == 3: continue 
                 inddweb = int(dweb[ii,jj,kk])-1
-                if indtweb == 0 and inddweb == 3: continue # ignore (knot, void) 
+                if inddweb == 3: continue # ignore all voids
 
                 denstot = denstot_arr[indtweb,inddweb]
                 nmean   = nmean_arr[indtweb,inddweb]

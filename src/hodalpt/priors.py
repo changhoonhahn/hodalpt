@@ -5,10 +5,15 @@ module for different priors usd in the hodalpt project
 '''
 import numpy as np 
 
+# best-fit nmean (fit to fiducial HOD) 
+nmean_bf = np.array([[9.8537e-05, 4.2518e-05, 3.3140e-06], 
+                     [5.7186e-05, 1.5255e-04, 3.7179e-05],
+                     [3.7550e-06, 1.6143e-05, 1.3051e-05]])
 
-def sample_NLB(seed, width=0.5):
-    ''' sample non-local bias parameters centered on values based on best-fit
-    to Quijote fiducial 
+
+def sample_bias(seed, model='nonlocal2'):
+    ''' sample comsic web classification bias model based on best-fit to
+    Quijote fiducial + HOD 
 
 
     returns
@@ -18,54 +23,57 @@ def sample_NLB(seed, width=0.5):
     alpha, beta, nmean are arrays of cenral best fit values (16,), width is desired prior width (percentile)
     returns dictionaries for alpha, beta, nmean 
     '''
-    # read in best-fit NBL parameters
-    #parfile columns: nmean,normalization,alpha,beta
-    fpars = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'sims', 'dat',
-                'parslist_quijote_bestfit.txt') 
-    pars = np.loadtxt(fpars, delimiter=',', skiprows=1).T
-    alpha_arr = pars[2] 
-    beta_arr = pars[3]
-    nmean_arr = pars[0]
-
-    theta_rsd = {
-    'bv': 0.7289, 
-    'bb': 1.1652,
-    'betarsd': 1.3136, 
-    'gamma': 0.4944}
-
     rng = np.random.default_rng(seed)
-    sample_alpha = np.zeros_like(alpha_arr)
-    sample_beta = np.zeros_like(beta_arr)
-    sample_nmean = np.zeros_like(nmean_arr)
-    for i in range(len(alpha_arr)): 
-        alpha = alpha_arr[i]
-        beta = beta_arr[i]
-        nmean = nmean_arr[i]
-
-        alow = alpha - alpha*width
-        ahigh = alpha + alpha*width
-
-        blow = beta - beta*width
-        bhigh = beta + beta*width
-
-        nlow = nmean - nmean*width
-        nhigh = nmean + nmean*width
-
-        sample_alpha[i] = rng.uniform(alow, ahigh)
-        sample_beta[i] = rng.uniform(blow, bhigh)
-        sample_nmean[i] = rng.uniform(nlow, nhigh)
-
-    # sample rsd params
-    theta = {}
-    theta['alpha'] = sample_alpha 
-    theta['beta'] = sample_beta
-    theta['nmean'] = sample_beta
-    for key, val in theta_rsd.items():
-        val_low = val - val*width
-        val_high = val + val*width
-        theta[key] = rng.uniform(val_low, val_high)
     
-    return sample_alpha, sample_beta, sample_nmean, dict_rsd
+    if model == 'nonlocal2': 
+        # sample nmean (ranges set based on best-fit and spanning 10x)
+        sample_nmean = np.zeros((4,4))
+        # knots
+        sample_nmean[0,0] = 10**rng.uniform(np.log10(3e-5), np.log10(3e-4)) 
+        sample_nmean[0,1] = 10**rng.uniform(np.log10(1e-5), np.log10(1e-4)) 
+        sample_nmean[0,2] = 10**rng.uniform(np.log10(1e-6), np.log10(1e-5)) 
+        # filaments
+        sample_nmean[1,0] = 10**rng.uniform(np.log10(1e-5), np.log10(1e-4)) 
+        sample_nmean[1,1] = 10**rng.uniform(np.log10(5e-5), np.log10(5e-4)) 
+        sample_nmean[1,2] = 10**rng.uniform(np.log10(1e-5), np.log10(1e-4)) 
+        # sheets 
+        sample_nmean[2,0] = 10**rng.uniform(np.log10(1e-6), np.log10(1e-5)) 
+        sample_nmean[2,1] = 10**rng.uniform(np.log10(5e-6), np.log10(5e-5)) 
+        sample_nmean[2,2] = 10**rng.uniform(np.log10(5e-6), np.log10(5e-5)) 
+
+        # sample alpha
+        sample_alpha = np.zeros((4,4))
+        sample_alpha[:3,:3] = rng.uniform(0.01, 3, size=(3,3))
+
+        # sample beta 
+        sample_beta = np.zeros((4,4))
+        sample_beta[:3,:3] = rng.uniform(0.1, 100, size=(3,3))
+
+        # sample rhoeps 
+        sample_rhoeps = np.zeros((4,4))
+        sample_rhoeps[:3,:3] = rng.uniform(0., 20, size=(3,3))
+
+        # sample eps
+        sample_eps = np.zeros((4,4))
+        sample_eps[:3,:3] = rng.uniform(0., 4, size=(3,3))
+        
+        theta = {'nmean': sample_nmean, 
+                 'alpha': sample_alpha, 
+                 'beta': sample_beta, 
+                 'rhoeps': sample_rhoeps, 
+                 'eps': sample_eps} 
+    else: 
+        raise NotImplementedError
+
+    # best-fit for reference 
+    # theta_rsd = { 'bv': 0.7289, 'bb': 1.1652, 'betarsd': 1.3136, 'gamma': 0.4944}
+    theta_rsd = {} 
+    theta_rsd['bv'] = rng.uniform(0., 2.)       # linear velocity bias --- no RSD to double RSD
+    theta_rsd['bb'] = rng.uniform(0., 2.)       # FoG sigma linear factor --- no FoG to double FoG
+    theta_rsd['betarsd'] = rng.uniform(0., 2.)  # FoG (1+delta)**betarsd
+    theta_rsd['gamma'] = rng.uniform(0., 1.)    # fog deviation from Gaussian
+
+    return theta, theta_rsd
 
 
 def sample_HOD(seed): 
